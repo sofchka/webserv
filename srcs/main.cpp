@@ -43,7 +43,7 @@ int main() {
         // send clentin tvyalner uxxarkum nuyn recvi parametrnerna yndunum
         std::string request[buffer];
         parse_f(request);
-        send(client_fd, response, strlen(response), 0);
+        send(client_fd, request, strlen(request), 0);
         close(client_fd);
     }
 
