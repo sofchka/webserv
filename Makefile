@@ -3,14 +3,14 @@ NAME = webserv
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
-SRCS = main.cpp
+SRCS = srcs/main.cpp srcs/parse_f.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(NAME)
 
 %.o : %.c
-	$(CC) $(CFLAGS) -c  $< -o $@
+	$(CXX) $(CXXFLAGS) -c  $< -o $@
 
 $(NAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
