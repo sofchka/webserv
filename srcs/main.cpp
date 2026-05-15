@@ -43,7 +43,16 @@ int main() {
         // send clentin tvyalner uxxarkum nuyn recvi parametrnerna yndunum
         std::string request[buffer];
         parse_f(request);
-        send(client_fd, request, strlen(request), 0);
+        std::ifstream file("../web/index.html");
+        std::string cont(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        std::string response =
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html\r\n"
+            "Content-Length: "
+            + std::to_string(content.length())
+            + "\r\n\r\n"
+            + content;
+        send(client_fd, response.c_str(), response.length(), 0);
         close(client_fd);
     }
 
