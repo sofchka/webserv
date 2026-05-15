@@ -1,4 +1,4 @@
-#include "includes/Server.hpp"
+#include "../includes/Server.hpp"
 
 int main() {
     //socket vory framea sarqum serveri hamar veradarcnuma fd sistemayum resursa sarqum
@@ -40,15 +40,9 @@ int main() {
         recv(client_fd, buffer, sizeof(buffer), 0);
 
         std::cout << "Client request:\n" << buffer << std::endl;
-
         // send clentin tvyalner uxxarkum nuyn recvi parametrnerna yndunum
-        const char *response =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/plain\r\n"
-            "Content-Length: 18\r\n"
-            "\r\n"
-            "Hello from server\n";
-
+        std::string request[buffer];
+        parse_f(request);
         send(client_fd, response, strlen(response), 0);
         close(client_fd);
     }
