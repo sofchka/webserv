@@ -60,10 +60,7 @@ int main()
         std::ifstream file(full_path.c_str());
         if (!file.is_open())
         {
-            std::string resp =
-                "HTTP/1.1 404 Not Found\r\n"
-                "Content-Length: 0\r\n\r\n";
-
+            std::string resp = make_response(404,"Not Found", "text/plain");
             send(client_fd, resp.c_str(), resp.size(), 0);
             close(client_fd);
             continue;
@@ -73,12 +70,7 @@ int main()
             std::istreambuf_iterator<char>()
         );
         std::string len = to_str(content.size());
-        std::string response =
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n"
-            "Content-Length: " + len + "\r\n"
-            "\r\n" +
-            content;
+        std::string response = make_response(200,content,"text/html");
         send(client_fd, response.c_str(), response.size(), 0);
         close(client_fd);
     }
