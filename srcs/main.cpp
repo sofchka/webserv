@@ -52,21 +52,11 @@ int main()
             continue;
         }
         std::string request(buffer);
-        parse_f(request);
-        std::string path = "/index.html";
-        size_t line_end = request.find("\r\n");
-        if (line_end != std::string::npos)
-        {
-            std::string first_line = request.substr(0, line_end);
-            size_t pos1 = first_line.find(" ");
-            size_t pos2 = first_line.find(" ", pos1 + 1);
-            path = first_line.substr(pos1 + 1, pos2 - pos1 - 1);
-        }
+        Request req = parse_f(request);
+        if (req.path == "/")
+            req.path = "/index.html";
 
-        if (path == "/")
-            path = "/index.html";
-
-        std::string full_path = "../web" + path;
+        std::string full_path = "../web" + req.path;
         std::ifstream file(full_path.c_str());
         if (!file.is_open())
         {
