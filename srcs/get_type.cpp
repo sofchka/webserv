@@ -1,0 +1,21 @@
+#include "../includes/Server.hpp"
+
+std::string get_type(const std::string &path)
+{
+    size_t dot = path.rfind(".");
+
+    if (dot == std::string::npos)
+        return "text/plain";
+    std::string ext = path.substr(dot);
+    if (ext == ".html")
+        return "text/html";
+    if (ext == ".css")
+        return "text/css";
+    if (ext == ".js")
+        return "application/javascript";
+    if (ext == ".png")
+        return "image/png";
+    if (ext == ".jpg")
+        return "image/jpeg";
+    return "text/plain";
+}

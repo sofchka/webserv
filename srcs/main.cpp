@@ -1,11 +1,5 @@
 #include "../includes/Server.hpp"
 
-std::string to_str(size_t  len)
-{
-    std::stringstream ss;
-    ss << len;
-    return ss.str();
-}
 int main()
 {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,6 +47,13 @@ int main()
         }
         std::string request(buffer);
         Request req = parse_f(request);
+        if(req.method != "GET")
+        {
+            std::string resp = make_response(405, "Method Not Allowed", "text/plain");
+            send(client_fd, resp.c_str(), resp.size(), 0);
+            close (client_fd);
+            continue;
+        }
         if (req.path == "/")
             req.path = "/index.html";
 
@@ -69,8 +70,8 @@ int main()
             (std::istreambuf_iterator<char>(file)),
             std::istreambuf_iterator<char>()
         );
-        std::string len = to_str(content.size());
-        std::string response = make_response(200,content,"text/html");
+        std::string g = get_type(full_path);
+        std::string response = make_response(200,content,g);
         send(client_fd, response.c_str(), response.size(), 0);
         close(client_fd);
     }
