@@ -1,6 +1,10 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <iostream>
+#include <stdlib.h>
 #include <cstddef>
 #include <map>
 #include <string>
@@ -8,25 +12,25 @@
 
 struct LocationConfig
 {
-    std::string path;
-    std::vector<std::string> methods;
-    std::string root;
-    std::string redirect;
-    bool autoindex;
-    std::string index;
-    bool upload_enabled;
-    std::string upload_store;
-    std::map<std::string, std::string> cgi_extensions;
+    std::string path;                                      // "/", "/upload"
+    std::vector<std::string> methods;                      // GET, POST, DELETE
+    std::string root;                                      // "web"
+    std::string redir;                                     // "/new-page"
+    bool autoindex;                                        // on/off(true/false)
+    std::string index;                                     // "index.html"
+    bool upload_enabled;                                   // true = upload on
+    std::string upload_store;                              // "web/uploads"
+    std::map<std::string, std::string> cgi_extensions;     // ".py" -> "/usr/bin/python3"
 
     LocationConfig();
 };
 
 struct ServerConfig
 {
-    std::string host;
-    int port;
-    std::map<int, std::string> error_pages;
-    std::size_t client_max_body_size;
+    std::string host;                                      // "0.0.0.0"
+    int port;                                              // 8080
+    std::map<int, std::string> error_pages;                // 404 -> "web/error/404.html"
+    std::size_t client_max_body_size;                      // 1000000 = 1MB
     std::vector<LocationConfig> locations;
 
     ServerConfig();
@@ -41,17 +45,21 @@ class Config
         Config();
 
         bool load(const std::string& path);
-        bool validate() const;
+        bool ParseConfigFile(int fd);
         const std::vector<ServerConfig>& getServers() const;
         const ServerConfig* findServer(const std::string& host, int port) const;
         const LocationConfig* findLocation(const ServerConfig& server,
                                            const std::string& request_path) const;
 };
 
+bool lineHasClosedBracket(const std::string& line);
+bool isLocationBlockStart(const std::string& line);
+bool isServerBlockStart(const std::string& line);
 std::string trimConfigLine(const std::string& line);
-std::vector<std::string> splitConfigTokens(const std::string& line);
+std::vector<std::string> splitCleanTokens(const std::string& line);
 bool parseListenValue(const std::string& value, std::string& host, int& port);
 bool parseSizeValue(const std::string& value, std::size_t& size);
 bool isMethodAllowed(const LocationConfig& location, const std::string& method);
+bool hasConfExtention(const std::string& filename);
 
 #endif
