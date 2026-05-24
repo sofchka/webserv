@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <fcntl.h>
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
