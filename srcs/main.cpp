@@ -38,8 +38,18 @@ int main()
     std::cout << "Server started on port 8080\n";
     while (true)
     {
-        int client_fd = accept(server_fd, NULL, NULL);
-        if (client_fd < 0)
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(server_fd, &readfds);
+        int max_fd = server_fd;
+        select(max_fd + 1, &readfds, NULL, NULL, NULL);
+        if (FD_ISSET(server_fd, &readfds))
+        {
+            int client_fd = accept(server_fd, NULL, NULL);
+            FD_SET(client_fd, &readfds);
+        }
+            int client_fd = accept(server_fd, NULL, NULL);
+            if (client_fd < 0)
         {
             perror("accept");
             continue;
