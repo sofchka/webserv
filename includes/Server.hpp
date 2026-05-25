@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "Config.hpp"
+#include <vector>
 
 struct Request
 {
@@ -18,6 +19,7 @@ struct Request
     std::string path;
     std::string version;
 };
+extern std::vector<int> clients;
 
 Request parse_f(std::string request);
 std::string to_str(size_t  len);
