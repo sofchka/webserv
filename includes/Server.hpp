@@ -19,7 +19,24 @@ struct Request
     std::string path;
     std::string version;
 };
-extern std::vector<int> clients;
+
+class Server
+{
+    private:
+        std::vector<int> clients;
+        int server_fd;
+        Config Config;
+    public:
+        Server();
+        Server &operator=(const Server& other);
+        Server(const Server &other);
+        ~Server();
+        void init();
+        void run();
+        void acceptClient();
+        void handleClient(int fd);
+};
+
 
 Request parse_f(std::string request);
 std::string to_str(size_t  len);
