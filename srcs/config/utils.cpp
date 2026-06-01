@@ -33,17 +33,21 @@ std::string trimConfigLine(const std::string& line)
     {
         end--;
     }
-
     return result.substr(start, end - start + 1);
 }
 
-std::vector<std::string> splitCleanTokens(const std::string& line)
+std::vector<std::string> splitCleanTokens(const std::string& line, int *k)
 {
     std::vector<std::string> tokens;
     std::string current;
 
     for (size_t i = 0; i < line.size(); i++)
     {
+        if (line[i] == '}')
+        {
+            *k = 1;
+            continue;
+        }
         if (line[i] == ' ' || line[i] == '\t' || line[i] == ';' ||
             line[i] == '{' || line[i] == '}')
         {
@@ -59,21 +63,8 @@ std::vector<std::string> splitCleanTokens(const std::string& line)
 
     if (!current.empty())
         tokens.push_back(current);
-
     return tokens;
 }
-
-bool isMethodAllowed(const LocationConfig& location, const std::string& method)
-{
-    (void)location;
-    (void)method;
-    return false;
-}
-
-
-
-
-
 
 bool hasConfExtention(const std::string& filename)
 {
@@ -82,30 +73,5 @@ bool hasConfExtention(const std::string& filename)
         return false;
     if (filename.substr(len - 5) == ".conf")
         return true;
-    return false;
-}
-
-bool isServerBlockStart(const std::string& line)
-{
-    return line == "server {" || line == "server{";
-}
-
-bool isLocationBlockStart(const std::string& line)
-{
-    if (line.size() >= 12 && line.substr(0, 9) == "location ") // "location / {" chars = 12
-    {
-        if (line.substr(line.size() - 1) == "{")
-            return true;
-    }
-    return false;
-}
-
-bool lineHasClosedBracket(const std::string& line)
-{
-    for (size_t i = 0; i < line.length(); ++i)
-    {
-        if (line[i] == '}')
-            return true;
-    }
     return false;
 }

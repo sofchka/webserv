@@ -53,10 +53,8 @@ class Config
 };
 
 bool lineHasClosedBracket(const std::string& line);
-bool isLocationBlockStart(const std::string& line);
-bool isServerBlockStart(const std::string& line);
 std::string trimConfigLine(const std::string& line);
-std::vector<std::string> splitCleanTokens(const std::string& line);
+std::vector<std::string> splitCleanTokens(const std::string& line, int* k);
 bool parseListenValue(const std::string& value, std::string& host, int& port);
 bool parseSizeValue(const std::string& value, std::size_t& size);
 bool isMethodAllowed(const LocationConfig& location, const std::string& method);

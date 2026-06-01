@@ -4,6 +4,14 @@ Config::Config()
 {
 }
 
+LocationConfig::LocationConfig() : autoindex(false), upload_enabled(false)
+{
+}
+
+ServerConfig::ServerConfig() : host("0.0.0.0"), port(8080), client_max_body_size(1000000)
+{
+}
+
 bool Config::load(const std::string& path)
 {
     if (path.empty() || hasConfExtention(path) == false)
@@ -20,14 +28,6 @@ bool Config::load(const std::string& path)
     bool state = ParseConfigFile(fd);
     close(fd);
     return state;
-}
-
-LocationConfig::LocationConfig() : autoindex(false), upload_enabled(false)
-{
-}
-
-ServerConfig::ServerConfig() : host("0.0.0.0"), port(8080), client_max_body_size(1000000)
-{
 }
 
 bool Config::ParseConfigFile(int fd)
@@ -64,17 +64,16 @@ bool Config::ParseConfigFile(int fd)
             line.clear();
             continue;
         }
-
-        std::vector<std::string> tokens = splitCleanTokens(line);
-
-        if (tokens.empty())
+        int k = 0;
+        std::vector<std::string> tokens = splitCleanTokens(line, &k);
+        if (tokens.empty() && k == 0)
         {
             line.clear();
             continue;
         }
 
         // starting block for server
-        if (tokens[0] == "server")
+        if (k == 0 && tokens[0] == "server")
         {
             if (inServer)
             {
@@ -94,7 +93,7 @@ bool Config::ParseConfigFile(int fd)
         }
 
         // starting block for location
-        if (tokens[0] == "location")
+        if (k == 0 && tokens[0] == "location")
         {
             if (!inServer)
             {
@@ -120,8 +119,9 @@ bool Config::ParseConfigFile(int fd)
         }
 
         // Closing blocks
-        if (lineHasClosedBracket(line))
+        if (k == 1)
         {
+            k = 0;
             if (tokens.size() != 0 && line != "}")
             {
                 std::cerr << "Error: invalid closing bracket syntax" << std::endl;
@@ -153,6 +153,7 @@ bool Config::ParseConfigFile(int fd)
             line.clear();
             continue;
         }
+
         // Server 
         if (inServer && !inLocation)
         {
@@ -164,7 +165,7 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                if (!parseListenValue(tokens[1], currentServer.host, currentServer.port))
+                if (!parseListenValue(tokens[1], currentServer.host, currentServer.port)) ////////////////////////////////////////////////////////////////
                 {
                     std::cerr << "Error: invalid listen value" << std::endl;
                     return false;
@@ -185,7 +186,11 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid error_page code" << std::endl;
                     return false;
                 }
-
+                if (access(tokens[2].c_str(), F_OK) != 0)
+                {
+                    std::cerr << "Error: error_page file does not exist: " << tokens[2] << std::endl;
+                    return false;
+                }
                 currentServer.error_pages[code] = tokens[2];
             }
             else if (tokens[0] == "client_max_body_size")
@@ -196,7 +201,7 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                if (!parseSizeValue(tokens[1], currentServer.client_max_body_size))
+                if (!parseSizeValue(tokens[1], currentServer.client_max_body_size))   /////////////////////////////////////////////////////////////////
                 {
                     std::cerr << "Error: invalid client_max_body_size value" << std::endl;
                     return false;
@@ -219,7 +224,11 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid root directive" << std::endl;
                     return false;
                 }
-
+                if (access(tokens[1].c_str(), F_OK) != 0)
+                {
+                    std::cerr << "Error: root directory does not exist: " << tokens[1] << std::endl;
+                    return false;
+                }
                 currentLocation.root = tokens[1];
             }
             else if (tokens[0] == "index")
@@ -229,10 +238,14 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid index directive" << std::endl;
                     return false;
                 }
-
+                if (access((currentLocation.root + "/" + tokens[1]).c_str(), F_OK) != 0)
+                {
+                    std::cerr << "Error: index file does not exist: " << currentLocation.root + "/" + tokens[1] << std::endl;
+                    return false;
+                }
                 currentLocation.index = tokens[1];
             }
-            else if (tokens[0] == "allow_methods")
+            else if (tokens[0] == "methods")
             {
                 if (tokens.size() < 2)
                 {
@@ -240,8 +253,8 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                currentLocation.methods.clear();
-
+                currentLocation.methods.clear();    // why?????? //////////////////////////////////////////////////////////////////////////////////////
+                
                 for (size_t j = 1; j < tokens.size(); ++j)
                 {
                     if (tokens[j] != "GET" &&
@@ -262,7 +275,6 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid autoindex directive" << std::endl;
                     return false;
                 }
-
                 if (tokens[1] == "on")
                     currentLocation.autoindex = true;
                 else if (tokens[1] == "off")
@@ -280,14 +292,18 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid return directive" << std::endl;
                     return false;
                 }
-
+                if (access(tokens[1].c_str(), F_OK) != 0)
+                {
+                    std::cerr << "Error: redirection target does not exist: " << tokens[1] << std::endl;
+                    return false;
+                }
                 currentLocation.redir = tokens[1];
             }
-            else if (tokens[0] == "upload_enabled")
+            else if (tokens[0] == "upload")
             {
                 if (tokens.size() != 2)
                 {
-                    std::cerr << "Error: invalid upload_enabled directive" << std::endl;
+                    std::cerr << "Error: invalid upload directive" << std::endl;
                     return false;
                 }
 
@@ -297,7 +313,7 @@ bool Config::ParseConfigFile(int fd)
                     currentLocation.upload_enabled = false;
                 else
                 {
-                    std::cerr << "Error: invalid upload_enabled value" << std::endl;
+                    std::cerr << "Error: invalid upload value" << std::endl;
                     return false;
                 }
             }
@@ -308,14 +324,18 @@ bool Config::ParseConfigFile(int fd)
                     std::cerr << "Error: invalid upload_store directive" << std::endl;
                     return false;
                 }
-
+                if (access(tokens[1].c_str(), F_OK) != 0)
+                {
+                    std::cerr << "Error: upload_store directory does not exist: " << tokens[1] << std::endl;
+                    return false;
+                }
                 currentLocation.upload_store = tokens[1];
             }
-            else if (tokens[0] == "cgi_extension")
+            else if (tokens[0] == "cgi")
             {
                 if (tokens.size() != 3)
                 {
-                    std::cerr << "Error: invalid cgi_extension directive" << std::endl;
+                    std::cerr << "Error: invalid cgi directive" << std::endl;
                     return false;
                 }
 
