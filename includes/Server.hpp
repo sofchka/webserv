@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include "Config.hpp"
 #include <vector>
+#include <algorithm>
 
 struct Request
 {
