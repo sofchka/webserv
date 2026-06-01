@@ -103,6 +103,10 @@ void Server::handleClient(int fd)
     if (bytes <= 0)
     {
         close(fd);
+        clients.erase(
+    std::remove(clients.begin(), clients.end(), fd),
+    clients.end()
+);
 
         for (size_t i = 0; i < clients.size(); i++)
         {
@@ -119,7 +123,6 @@ void Server::handleClient(int fd)
     std::string request(buffer);
 
     Request req = parse_f(request);
-
     if (req.method != "GET")
     {
         std::string resp;
@@ -134,13 +137,17 @@ void Server::handleClient(int fd)
              0);
 
         close(fd);
+        clients.erase(
+    std::remove(clients.begin(), clients.end(), fd),
+    clients.end()
+);
 
         return;
     }
     if (req.path == "/")
         req.path = "/index.html";
     std::string full_path;
-    full_path = "../web" + req.path;
+    full_path = "./web" + req.path;
     std::ifstream file(full_path.c_str());
 
     if (!file.is_open())
@@ -157,6 +164,10 @@ void Server::handleClient(int fd)
              0);
 
         close(fd);
+        clients.erase(
+    std::remove(clients.begin(), clients.end(), fd),
+    clients.end()
+);
 
         return;
     }
@@ -182,6 +193,10 @@ void Server::handleClient(int fd)
          0);
 
     close(fd);
+    clients.erase(
+    std::remove(clients.begin(), clients.end(), fd),
+    clients.end()
+);
 }
 
 void Server::run()
@@ -211,7 +226,6 @@ void Server::run()
                           NULL,
                           NULL,
                           NULL);
-
         if (activity < 0)
         {
             perror("select");
