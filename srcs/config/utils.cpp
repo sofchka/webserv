@@ -87,12 +87,17 @@ bool hasConfExtention(const std::string& filename)
 
 bool isServerBlockStart(const std::string& line)
 {
-    return line == "server {" || line == "server{" || line == "server";
+    return line == "server {" || line == "server{";
 }
 
 bool isLocationBlockStart(const std::string& line)
 {
-    return line.size() >= 9 && line.substr(0, 9) == "location ";
+    if (line.size() >= 12 && line.substr(0, 9) == "location ") // "location / {" chars = 12
+    {
+        if (line.substr(line.size() - 1) == "{")
+            return true;
+    }
+    return false;
 }
 
 bool lineHasClosedBracket(const std::string& line)
