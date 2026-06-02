@@ -25,17 +25,19 @@ class Server
 {
     private:
         std::vector<int> clients;
-        int server_fd;
+        std::vector<int> server_fds;
+        std::vector<ServerConfig> server_configs;
+        std::map<int, size_t> client_servers;
         Config config;
-        ServerConfig server_config;
+        void closeClient(int fd);
     public:
         Server();
         Server(const Server& other);
         Server& operator=(const Server& other);
         ~Server();
-        void init();
+        void init(const std::string& config_path);
         void run();
-        void acceptClient();
+        void acceptClient(size_t server_index);
         void handleClient(int fd);
 };
 

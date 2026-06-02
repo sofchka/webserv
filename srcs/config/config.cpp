@@ -3,6 +3,22 @@
 Config::Config()
 {
 }
+
+Config::Config(const Config& other)
+{
+    *this = other;
+}
+
+Config& Config::operator=(const Config& other)
+{
+    if (this != &other)
+        _servers = other._servers;
+    return *this;
+}
+
+Config::~Config()
+{
+}
  
 const std::vector<ServerConfig>& Config::getServers() const
 {
@@ -49,7 +65,55 @@ LocationConfig::LocationConfig() : autoindex(false), upload_enabled(false)
 {
 }
 
+LocationConfig::LocationConfig(const LocationConfig& other)
+{
+    *this = other;
+}
+
+LocationConfig& LocationConfig::operator=(const LocationConfig& other)
+{
+    if (this != &other)
+    {
+        path = other.path;
+        methods = other.methods;
+        root = other.root;
+        redir = other.redir;
+        autoindex = other.autoindex;
+        index = other.index;
+        upload_enabled = other.upload_enabled;
+        upload_store = other.upload_store;
+        cgi_extensions = other.cgi_extensions;
+    }
+    return *this;
+}
+
+LocationConfig::~LocationConfig()
+{
+}
+
 ServerConfig::ServerConfig() : host("0.0.0.0"), port(8080), client_max_body_size(1000000)
+{
+}
+
+ServerConfig::ServerConfig(const ServerConfig& other)
+{
+    *this = other;
+}
+
+ServerConfig& ServerConfig::operator=(const ServerConfig& other)
+{
+    if (this != &other)
+    {
+        host = other.host;
+        port = other.port;
+        error_pages = other.error_pages;
+        client_max_body_size = other.client_max_body_size;
+        locations = other.locations;
+    }
+    return *this;
+}
+
+ServerConfig::~ServerConfig()
 {
 }
 

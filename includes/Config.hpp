@@ -23,6 +23,9 @@ struct LocationConfig
     std::map<std::string, std::string> cgi_extensions;     // ".py" -> "/usr/bin/python3"
 
     LocationConfig();
+    LocationConfig(const LocationConfig& other);
+    LocationConfig& operator=(const LocationConfig& other);
+    ~LocationConfig();
 };
 
 struct ServerConfig
@@ -34,6 +37,9 @@ struct ServerConfig
     std::vector<LocationConfig> locations;
 
     ServerConfig();
+    ServerConfig(const ServerConfig& other);
+    ServerConfig& operator=(const ServerConfig& other);
+    ~ServerConfig();
 };
 
 class Config
@@ -43,6 +49,9 @@ class Config
 
     public:
         Config();
+        Config(const Config& other);
+        Config& operator=(const Config& other);
+        ~Config();
 
         bool load(const std::string& path);
         bool ParseConfigFile(int fd);
