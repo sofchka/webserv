@@ -2,6 +2,8 @@
 
 Request parse_f(std::string request)
 {
+    // TODO: Validate malformed request lines, parse headers, Content-Length,
+    // Transfer-Encoding, query strings, and the request body.
     size_t line_end = request.find("\r\n");
     std::string f_line = request.substr(0, line_end);
     size_t pos1 = f_line.find(" ");

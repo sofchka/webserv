@@ -2,6 +2,7 @@
 
 static std::string status_text(int status)
 {
+    // TODO: Expand status coverage and serve configured/default error pages.
     if (status == 200)
         return "200 OK";
     if (status == 404)
@@ -15,6 +16,7 @@ std::string make_response(int status,
                           const std::string& content,
                           const std::string& type)
 {
+    // TODO: Add required headers such as Connection and Date where appropriate.
     std::string body = content;
 
     std::string response =
