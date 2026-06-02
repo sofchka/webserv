@@ -1,8 +1,5 @@
 #include "../../includes/Config.hpp"
 
-// needs to be checked 
-
-//idk
 bool parseListenValue(const std::string& value, std::string& host, int& port)
 {
     size_t colon = value.find(':');
@@ -34,6 +31,8 @@ bool parseListenValue(const std::string& value, std::string& host, int& port)
 
 bool parseSizeValue(const std::string& value, std::size_t& size)
 {
+    // TODO: Support common size suffixes if the config format should allow them
+    // later, for example 1K, 1M, or 1G.
     if (value.empty())
         return false;
     for (size_t i = 0; i < value.size(); i++)

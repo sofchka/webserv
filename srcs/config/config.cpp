@@ -4,7 +4,7 @@ Config::Config()
 {
 }
  
-const std::vector<ServerConfig>& Config::getServers() const // to init the first one in the server class
+const std::vector<ServerConfig>& Config::getServers() const
 {
     return _servers;
 }
@@ -206,7 +206,7 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                if (!parseListenValue(tokens[1], currentServer.host, currentServer.port)) ////////////////////////////////////////////////////////////////
+                if (!parseListenValue(tokens[1], currentServer.host, currentServer.port))
                 {
                     std::cerr << "Error: invalid listen value" << std::endl;
                     return false;
@@ -242,7 +242,7 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                if (!parseSizeValue(tokens[1], currentServer.client_max_body_size))   /////////////////////////////////////////////////////////////////
+                if (!parseSizeValue(tokens[1], currentServer.client_max_body_size))
                 {
                     std::cerr << "Error: invalid client_max_body_size value" << std::endl;
                     return false;
@@ -294,7 +294,7 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
 
-                currentLocation.methods.clear();    // why?????? //////////////////////////////////////////////////////////////////////////////////////
+                currentLocation.methods.clear();
                 
                 for (size_t j = 1; j < tokens.size(); ++j)
                 {
