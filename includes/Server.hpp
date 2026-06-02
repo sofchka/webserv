@@ -27,6 +27,7 @@ class Server
         std::vector<int> clients;
         int server_fd;
         Config config;
+        ServerConfig server_config;
     public:
         Server();
         Server(const Server& other);

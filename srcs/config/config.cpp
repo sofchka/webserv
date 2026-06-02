@@ -3,6 +3,47 @@
 Config::Config()
 {
 }
+ 
+const std::vector<ServerConfig>& Config::getServers() const // to init the first one in the server class
+{
+    return _servers;
+}
+
+const ServerConfig* Config::findServer(const std::string& host, int port) const
+{
+    for (size_t i = 0; i < _servers.size(); i++)
+    {
+        if (_servers[i].host == host && _servers[i].port == port)
+            return &_servers[i];
+    }
+    return NULL;
+}
+
+const LocationConfig* Config::findLocation(const ServerConfig& server,
+                                           const std::string& request_path) const
+{
+    const LocationConfig* best_match = NULL;
+
+    for (size_t i = 0; i < server.locations.size(); i++)
+    {
+        const std::string& path = server.locations[i].path;
+
+        if (request_path.find(path) == 0
+            && (best_match == NULL || path.size() > best_match->path.size()))
+            best_match = &server.locations[i];
+    }
+    return best_match;
+}
+
+bool isMethodAllowed(const LocationConfig& location, const std::string& method)
+{
+    for (size_t i = 0; i < location.methods.size(); i++)
+    {
+        if (location.methods[i] == method)
+            return true;
+    }
+    return false;
+}
 
 LocationConfig::LocationConfig() : autoindex(false), upload_enabled(false)
 {

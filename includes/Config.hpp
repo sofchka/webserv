@@ -52,7 +52,6 @@ class Config
                                            const std::string& request_path) const;
 };
 
-bool lineHasClosedBracket(const std::string& line);
 std::string trimConfigLine(const std::string& line);
 std::vector<std::string> splitCleanTokens(const std::string& line, int* k);
 bool parseListenValue(const std::string& value, std::string& host, int& port);

@@ -30,6 +30,10 @@ Server::~Server()
 
 void Server::init()
 {
+    if (!config.load("conf/default.conf"))
+        exit(1);
+    server_config = config.getServers()[0];
+
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (server_fd < 0)
@@ -53,8 +57,11 @@ void Server::init()
     memset(&addr, 0, sizeof(addr));
 
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(8080);
+    if (server_config.host == "0.0.0.0")
+        addr.sin_addr.s_addr = INADDR_ANY;
+    else
+        addr.sin_addr.s_addr = inet_addr(server_config.host.c_str());
+    addr.sin_port = htons(server_config.port);
 
     if (bind(server_fd,
              (struct sockaddr*)&addr,
@@ -70,7 +77,7 @@ void Server::init()
         exit(1);
     }
 
-    std::cout << "Server started on port 8080\n";
+    std::cout << "Server started on port " << server_config.port << "\n";
 }
 
 void Server::acceptClient()
@@ -123,7 +130,8 @@ void Server::handleClient(int fd)
     std::string request(buffer);
 
     Request req = parse_f(request);
-    if (req.method != "GET")
+    const LocationConfig* location = config.findLocation(server_config, req.path);    /// idk if this is right
+    if (location == NULL || !isMethodAllowed(*location, req.method))
     {
         std::string resp;
 
@@ -145,9 +153,9 @@ void Server::handleClient(int fd)
         return;
     }
     if (req.path == "/")
-        req.path = "/index.html";
+        req.path = "/" + location->index;
     std::string full_path;
-    full_path = "./web" + req.path;
+    full_path = location->root + req.path;
     std::ifstream file(full_path.c_str());
 
     if (!file.is_open())
