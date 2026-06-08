@@ -13,6 +13,7 @@
 #include "Config.hpp"
 #include <vector>
 #include <algorithm>
+#include <map>
 
 struct Request
 {
@@ -28,6 +29,7 @@ class Server
         std::vector<int> server_fds;
         std::vector<ServerConfig> server_configs;
         std::map<int, size_t> client_servers;
+        std::map<int, std::string> read_buffer;
         Config config;
         void closeClient(int fd);
     public:

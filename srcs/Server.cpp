@@ -124,27 +124,18 @@ void Server::closeClient(int fd)
 
 void Server::handleClient(int fd)
 {
-    // TODO: Store per-client read/write buffers. A real HTTP request can arrive in
-    // many recv() calls, and responses may need many send() calls.
     char buffer[1024];
-
-    memset(buffer, 0, sizeof(buffer));
-
-    int bytes = recv(fd,
-                     buffer,
-                     sizeof(buffer),
-                     0);
-
+    int bytes = recv(fd, buffer, sizeof(buffer), 0);
     if (bytes <= 0)
     {
         closeClient(fd);
-
         return;
     }
-
-    std::string request(buffer);
-
-    Request req = parse_f(request);
+    read_buffer[fd].append(buffer, bytes);
+    if (read_buffer[fd].find("\r\n\r\n") == std::string::npos)
+        return;
+    Request req = parse_f(read_buffer[fd]);
+    read_buffer[fd].clear();
     std::map<int, size_t>::iterator server_index = client_servers.find(fd);
     if (server_index == client_servers.end())
     {
