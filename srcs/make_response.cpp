@@ -3,6 +3,18 @@
 static std::string status_text(int status)
 {
     // TODO: Expand status coverage and serve configured/default error pages.
+    if (status == 201)
+        return "201 Created";
+    if (status == 204)
+        return "204 No Content";
+    if (status == 301)
+        return "301 Moved Permanently";
+    if (status == 302)
+        return "302 Found";
+    if (status == 403)
+        return "403 Forbidden";
+    if (status == 413)
+        return "413 Payload Too Large";
     if (status == 200)
         return "200 OK";
     if (status == 404)
