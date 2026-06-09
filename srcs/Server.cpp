@@ -4,15 +4,6 @@
 #include <cstdio>
 #include <cerrno>
 
-static std::string requestBody(const std::string& request)
-{
-    size_t pos = request.find("\r\n\r\n");
-
-    if (pos == std::string::npos)
-        return "";
-    return request.substr(pos + 4);
-}
-
 static std::string joinPath(const std::string& left, const std::string& right)
 {
     if (right.empty() || right == "/")
@@ -309,6 +300,24 @@ void Server::handleClient(int fd)
     }
 
     const ServerConfig& current_server = server_configs[server_index->second];
+    if (!req.valid)
+    {
+        std::string resp;
+
+        resp = make_response(400,
+                             "Bad Request",
+                             "text/plain",
+                             &current_server);
+
+        send(fd,
+             resp.c_str(),
+             resp.size(),
+             0);
+
+        closeClient(fd);
+
+        return;
+    }
     const LocationConfig* location = config.findLocation(current_server, req.path);
     if (location == NULL)
     {
@@ -348,7 +357,7 @@ void Server::handleClient(int fd)
     }
     if (req.path == "/")
         req.path = "/" + location->index;
-    std::string body = requestBody(raw_request);
+    std::string body = req.body;
 
     if (body.size() > current_server.client_max_body_size)
     {

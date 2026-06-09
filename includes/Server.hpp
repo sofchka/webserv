@@ -17,9 +17,17 @@
 
 struct Request
 {
+    Request();
+
+    bool valid;
     std::string method;
     std::string path;
+    std::string query;
     std::string version;
+    std::map<std::string, std::string> headers;
+    size_t content_length;
+    bool chunked;
+    std::string body;
 };
 
 class Server
