@@ -13,6 +13,8 @@ all: $(NAME)
 	$(CXX) $(CXXFLAGS) -c  $< -o $@
 
 $(NAME): $(OBJS)
+	@mkdir -p web/uploads
+	@mkdir -p web/cgi-bin
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
 
 clean:
