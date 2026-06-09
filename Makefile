@@ -9,13 +9,14 @@ OBJS = $(SRCS:.cpp=.o)
 
 all: $(NAME)
 
-%.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c  $< -o $@
-
 $(NAME): $(OBJS)
 	@mkdir -p web/uploads
 	@mkdir -p web/cgi-bin
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+
+
+%.o : %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS)

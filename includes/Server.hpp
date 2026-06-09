@@ -30,8 +30,13 @@ class Server
         std::vector<ServerConfig> server_configs;
         std::map<int, size_t> client_servers;
         std::map<int, std::string> read_buffer;
+        std::map<int, std::string> write_buffer;
+        std::map<int, size_t> write_offset;
+        std::map<int, bool> close_after_write;
         Config config;
         void closeClient(int fd);
+        ssize_t send(int fd, const char* data, size_t size, int flags);
+        void flushClient(int fd);
     public:
         Server();
         Server(const Server& other);
@@ -47,4 +52,5 @@ Request parse_f(std::string request);
 std::string to_str(size_t  len);
 std::string get_type(const std::string &path);
 std::string make_response(int status,const std::string& content,const std::string& type);
+std::string make_response(int status,const std::string& content,const std::string& type,const ServerConfig* server);
 #endif
