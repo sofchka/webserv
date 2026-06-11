@@ -18,15 +18,20 @@ static std::string joinPath(const std::string& left, const std::string& right)
 static std::string localPath(const LocationConfig& location,
                              const std::string& request_path)
 {
-    std::string relative = request_path;
+    std::string path = request_path;
+    size_t q = path.find('?');
+    if (q != std::string::npos)
+        path = path.substr(0, q);
 
+    std::string relative = path;
     if (location.path != "/" &&
         relative.compare(0, location.path.size(), location.path) == 0)
     {
         relative = relative.substr(location.path.size());
-        if (relative.empty())
-            relative = "/";
     }
+    if (relative.empty())
+        relative = "/";
+
     return joinPath(location.root, relative);
 }
 
@@ -687,7 +692,6 @@ void Server::run()
         }
 
         int activity;
-
         activity = select(max_fd + 1,
                           &readfds,
                           &writefds,
