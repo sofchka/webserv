@@ -282,6 +282,54 @@ void Server::flushClient(int fd)
         closeClient(fd);
 }
 
+std::string Server::executeCgi(const std::string& path,
+                               const Request& req,
+                               const LocationConfig& location)
+{
+    (void) req;
+    int pipefd[2];
+    pipe(pipefd);
+
+    pid_t pid = fork();
+
+    if (pid == 0)
+    {
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]);
+
+        std::string script = location.cgi_extensions.at(extensionOf(path));
+
+        char *args[] = {
+            (char*)script.c_str(),
+            (char*)path.c_str(),
+            NULL
+        };
+
+        execve(script.c_str(), args, NULL);
+        exit(1);
+    }
+    else
+    {
+        char buffer[1024];
+        std::string result;
+
+        close(pipefd[1]);
+
+        while (true)
+        {
+            int n = read(pipefd[0], buffer, sizeof(buffer));
+            if (n <= 0) 
+                break;
+            result.append(buffer, n);
+        }
+
+        close(pipefd[0]);
+        waitpid(pid, NULL, 0);
+
+        return result;
+    }
+}
+
 void Server::handleClient(int fd)
 {
     char buffer[1024];
@@ -400,26 +448,23 @@ void Server::handleClient(int fd)
         return;
     }
 
-    std::string full_path = localPath(*location, req.path);
+   std::string full_path = localPath(*location, req.path);
 
-    if ((req.method == "GET" || req.method == "POST") &&
-        location->cgi_extensions.find(extensionOf(full_path)) !=
-        location->cgi_extensions.end())
+   if (req.method == "GET" || req.method == "POST" || req.method == "DELETE")
     {
-        std::string resp;
+        std::string output = executeCgi(full_path, req, *location);
 
-        resp = make_response(501,
-                             "Not Implemented",
-                             "text/plain",
-                             &current_server);
+        std::string resp =
+            make_response(200, output, "text/html", &current_server);
 
-        send(fd,
-             resp.c_str(),
-             resp.size(),
-             0);
-
+        send(fd, resp.c_str(), resp.size(), 0);
         closeClient(fd);
-
+        return;
+    }
+    else
+    {
+        std::string resp; resp = make_response(501, "Not Implemented", "text/plain", &current_server);
+        send(fd, resp.c_str(), resp.size(), 0); closeClient(fd); 
         return;
     }
     if (req.method == "POST")

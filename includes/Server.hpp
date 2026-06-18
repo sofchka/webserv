@@ -5,6 +5,8 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <cstring>
 #include <unistd.h>
@@ -50,6 +52,7 @@ class Server
         Server(const Server& other);
         Server& operator=(const Server& other);
         ~Server();
+        std::string executeCgi(const std::string& path,const Request& req,const LocationConfig& location);
         void init(const std::string& config_path);
         void run();
         void acceptClient(size_t server_index);
