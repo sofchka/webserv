@@ -1,21 +1,533 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Register</title>
+    <base target="_self">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skylines Architecture | Authentication</title>
+    <meta name="description" content="Secure login and registration portal for Skylines Architecture - Designing tomorrow's skyscrapers.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#0a0a0a',
+                        'secondary': '#1a1a1a',
+                        'accent': '#3d7bb6',
+                        'neutral-light': '#f5f5f5',
+                        'neutral-dark': '#333333'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-up': 'fadeUp 0.8s ease-out',
+                        'slide-in': 'slideIn 0.6s ease-out',
+                        'float': 'float 3s ease-in-out infinite'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-8px)' }
+                        },
+                        pulseSubtle: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.8' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <h1>Register</h1>
+<body class="min-h-screen bg-neutral-light text-primary font-inter">
+    <!-- Sticky Navigation -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-neutral-mid">
+        <nav class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <a href="./index.html" class="text-2xl font-bold tracking-tight font-space animate-fade-in">Skylines<span class="text-accent">Arch</span></a>
+                <ul id="nav-menu" class="hidden md:flex gap-8"></ul>
+                <button id="mobile-menu-btn" class="md:hidden text-2xl"><i class="fas fa-bars"></i></button>
+            </div>
+            <div id="mobile-menu" class="md:hidden mt-4 py-4 border-t hidden">
+                <ul id="mobile-nav-list" class="space-y-4"></ul>
+            </div>
+        </nav>
+    </header>
 
-    <form action="/register" method="POST">
-        <label>Name:</label><br>
-        <input type="text" name="name"><br><br>
+    <main class="py-12 md:py-20">
+        <!-- Hero Section -->
+        <section class="container mx-auto px-4 mb-16">
+            <div class="text-center max-w-3xl mx-auto animate-slide-up">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 font-space">Design Access Portal</h1>
+                <p class="text-neutral-dark text-lg">Secure authentication for architects, engineers, and project collaborators.</p>
+            </div>
+        </section>
 
-        <label>Email:</label><br>
-        <input type="text" name="email"><br><br>
+        <!-- Auth Container -->
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+                <!-- Login Form -->
+                <div id="login-section" class="bg-white rounded-2xl shadow-xl p-8 md:p-10 border border-neutral-mid animate-fade-in">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="bg-accent/10 p-3 rounded-lg">
+                            <i class="fas fa-sign-in-alt text-accent text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold font-space">Member Login</h2>
+                    </div>
+                    
+                    <form id="login-form" class="space-y-6">
+                        <div>
+                            <label for="login-email" class="block mb-2 font-medium text-neutral-dark">Email Address</label>
+                            <div class="relative">
+                                <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <input type="email" id="login-email" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="architect@skylines.com" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="login-password" class="block mb-2 font-medium text-neutral-dark">Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <input type="password" id="login-password" class="w-full pl-12 pr-12 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="••••••••" required>
+                                <button type="button" id="toggle-login-password" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-neutral-dark">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="remember-me" class="rounded border-neutral-mid text-accent focus:ring-accent">
+                                <label for="remember-me" class="ml-2 text-sm text-neutral-dark">Remember me</label>
+                            </div>
+                            <a href="#forgot-password" class="text-sm text-accent hover:text-primary transition-colors">Forgot password?</a>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-secondary transition-colors duration-300 flex items-center justify-center gap-2">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Sign In
+                        </button>
+                        
+                        <div class="text-center text-sm text-neutral-dark">
+                            Don't have an account? 
+                            <button type="button" id="switch-to-register" class="text-accent hover:text-primary font-medium transition-colors">Create Account</button>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-8 pt-8 border-t border-neutral-mid">
+                        <p class="text-sm text-neutral-dark mb-4">Or continue with</p>
+                        <div id="social-login-buttons" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
 
-        <input type="submit" value="Submit">
-    </form>
+                <!-- Register Form -->
+                <div id="register-section" class="bg-white rounded-2xl shadow-xl p-8 md:p-10 border border-neutral-mid animate-fade-in hidden">
+                    <div class="flex items-center gap-3 mb-8">
+                        <div class="bg-accent/10 p-3 rounded-lg">
+                            <i class="fas fa-user-plus text-accent text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold font-space">Create Account</h2>
+                    </div>
+                    
+                    <form id="register-form" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="register-firstname" class="block mb-2 font-medium text-neutral-dark">First Name</label>
+                                <div class="relative">
+                                    <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                    <input type="text" id="register-firstname" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="Alex" required>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label for="register-lastname" class="block mb-2 font-medium text-neutral-dark">Last Name</label>
+                                <div class="relative">
+                                    <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                    <input type="text" id="register-lastname" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="Chen" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="register-email" class="block mb-2 font-medium text-neutral-dark">Email Address</label>
+                            <div class="relative">
+                                <i class="fas fa-envelope absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <input type="email" id="register-email" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="alex.chen@skylines.com" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="register-role" class="block mb-2 font-medium text-neutral-dark">Professional Role</label>
+                            <div class="relative">
+                                <i class="fas fa-briefcase absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <select id="register-role" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all appearance-none" required>
+                                    <option value="">Select your role</option>
+                                </select>
+                                <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-neutral-dark pointer-events-none"></i>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="register-password" class="block mb-2 font-medium text-neutral-dark">Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <input type="password" id="register-password" class="w-full pl-12 pr-12 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="••••••••" required>
+                                <button type="button" id="toggle-register-password" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-neutral-dark">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-neutral-dark mt-2">Minimum 8 characters with uppercase, lowercase, and number</p>
+                        </div>
+                        
+                        <div>
+                            <label for="register-confirm-password" class="block mb-2 font-medium text-neutral-dark">Confirm Password</label>
+                            <div class="relative">
+                                <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-dark"></i>
+                                <input type="password" id="register-confirm-password" class="w-full pl-12 pr-4 py-3 border border-neutral-mid rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <input type="checkbox" id="terms" class="mt-1 rounded border-neutral-mid text-accent focus:ring-accent" required>
+                            <label for="terms" class="ml-2 text-sm text-neutral-dark">
+                                I agree to the <a href="#terms" class="text-accent hover:text-primary">Terms of Service</a> and <a href="#privacy" class="text-accent hover:text-primary">Privacy Policy</a>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-accent text-white py-3 rounded-lg font-medium hover:bg-accent/90 transition-colors duration-300 flex items-center justify-center gap-2">
+                            <i class="fas fa-user-plus"></i>
+                            Create Account
+                        </button>
+                        
+                        <div class="text-center text-sm text-neutral-dark">
+                            Already have an account? 
+                            <button type="button" id="switch-to-login" class="text-accent hover:text-primary font-medium transition-colors">Sign In</button>
+                        </div>
+                    </form>
+                </div>
 
-    <a href="/">Back to Home</a>
+                <!-- Visual Side -->
+                <div class="hidden lg:block relative animate-float">
+                    <div class="sticky top-24">
+                        <div class="bg-gradient-to-br from-primary to-secondary rounded-2xl p-8 h-full flex flex-col justify-between text-white">
+                            <div>
+                                <h3 class="text-2xl font-bold mb-4 font-space">Design Collaboration Platform</h3>
+                                <p class="opacity-90 mb-8">Access project blueprints, collaborate with global teams, and manage architectural designs in real-time.</p>
+                                
+                                <div id="feature-list" class="space-y-4 mb-12"></div>
+                            </div>
+                            
+                            <div class="mt-auto">
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                                        <i class="fas fa-building text-accent text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium">Secure Architecture Portal</p>
+                                        <p class="text-sm opacity-80">Enterprise-grade security</p>
+                                    </div>
+                                </div>
+                                
+                                <img src="https://picsum.photos/600/300?random=17" alt="Modern architectural visualization" class="rounded-xl shadow-lg w-full">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bottom-0 bg-primary text-white py-8 mt-20">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4 font-space">Skylines<span class="text-accent">Arch</span></h3>
+                    <p class="opacity-80 text-sm">Designing tomorrow's skyscrapers with precision and vision.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">Quick Links</h4>
+                    <ul id="footer-links" class="space-y-2"></ul>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">Support</h4>
+                    <ul id="support-links" class="space-y-2"></ul>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-white/20 text-center text-sm opacity-70">
+                <p>© 2024 Skylines Architecture. All rights reserved. | Secure Authentication Portal v2.1</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Data Layer
+        const navigationData = [
+            { "label": "Home", "href": "./index.html", "icon": "fas fa-home" },
+        ];
+
+        const socialLoginData = [
+            { "provider": "Google", "icon": "fab fa-google", "color": "bg-red-500 hover:bg-red-600" },
+            { "provider": "Microsoft", "icon": "fab fa-microsoft", "color": "bg-blue-600 hover:bg-blue-700" }
+        ];
+
+        const roleOptionsData = [
+            { "value": "architect", "label": "Architect" },
+            { "value": "engineer", "label": "Structural Engineer" },
+            { "value": "designer", "label": "Designer" },
+            { "value": "project_manager", "label": "Project Manager" },
+            { "value": "client", "label": "Client" },
+            { "value": "contractor", "label": "Contractor" },
+            { "value": "consultant", "label": "Consultant" }
+        ];
+
+        const featureListData = [
+            { "text": "Real-time 3D model collaboration", "icon": "fas fa-cube" },
+            { "text": "Secure document sharing", "icon": "fas fa-shield-alt" },
+            { "text": "Project timeline management", "icon": "fas fa-calendar-alt" },
+            { "text": "Team communication tools", "icon": "fas fa-comments" }
+        ];
+
+        const footerLinksData = [
+            { "label": "Privacy Policy", "href": "#privacy" },
+            { "label": "Terms of Service", "href": "#terms" },
+            { "label": "Careers", "href": "#careers" },
+            { "label": "Documentation", "href": "#docs" }
+        ];
+
+        const supportLinksData = [
+            { "label": "Help Center", "href": "#help", "icon": "fas fa-question-circle" },
+            { "label": "Contact Support", "href": "#support", "icon": "fas fa-headset" },
+            { "label": "System Status", "href": "#status", "icon": "fas fa-server" }
+        ];
+
+        // Render Functions
+        function renderNavigation(items) {
+            return items.map(item => `
+                <li>
+                    <a href="${item.href}" class="flex items-center gap-2 text-neutral-dark hover:text-accent transition-colors duration-300">
+                        <i class="${item.icon}"></i>
+                        ${item.label}
+                    </a>
+                </li>
+            `).join('');
+        }
+
+        function renderSocialLoginButtons(items) {
+            return items.map(item => `
+                <button type="button" class="${item.color} text-white py-3 rounded-lg font-medium transition-colors duration-300 flex items-center justify-center gap-2">
+                    <i class="${item.icon}"></i>
+                    Continue with ${item.provider}
+                </button>
+            `).join('');
+        }
+
+        function renderRoleOptions(items) {
+            return items.map(item => `
+                <option value="${item.value}">${item.label}</option>
+            `).join('');
+        }
+
+        function renderFeatureList(items) {
+            return items.map(item => `
+                <div class="flex items-center gap-3">
+                    <i class="${item.icon} text-accent"></i>
+                    <span>${item.text}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderFooterLinks(items) {
+            return items.map(item => `
+                <li>
+                    <a href="${item.href}" class="opacity-80 hover:opacity-100 hover:text-accent transition-all text-sm">${item.label}</a>
+                </li>
+            `).join('');
+        }
+
+        function renderSupportLinks(items) {
+            return items.map(item => `
+                <li>
+                    <a href="${item.href}" class="flex items-center gap-2 opacity-80 hover:opacity-100 hover:text-accent transition-all text-sm">
+                        <i class="${item.icon}"></i>
+                        ${item.label}
+                    </a>
+                </li>
+            `).join('');
+        }
+
+        // DOM Injection
+        document.getElementById('nav-menu').innerHTML = renderNavigation(navigationData);
+        document.getElementById('mobile-nav-list').innerHTML = renderNavigation(navigationData);
+        document.getElementById('social-login-buttons').innerHTML = renderSocialLoginButtons(socialLoginData);
+        document.getElementById('register-role').innerHTML = '<option value="">Select your role</option>' + renderRoleOptions(roleOptionsData);
+        document.getElementById('feature-list').innerHTML = renderFeatureList(featureListData);
+        document.getElementById('footer-links').innerHTML = renderFooterLinks(footerLinksData);
+        document.getElementById('support-links').innerHTML = renderSupportLinks(supportLinksData);
+
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+            mobileMenuBtn.innerHTML = mobileMenu.classList.contains('hidden') 
+                ? '<i class="fas fa-bars"></i>' 
+                : '<i class="fas fa-times"></i>';
+        });
+
+        // Form Switching
+        const loginSection = document.getElementById('login-section');
+        const registerSection = document.getElementById('register-section');
+        const switchToRegister = document.getElementById('switch-to-register');
+        const switchToLogin = document.getElementById('switch-to-login');
+
+        switchToRegister.addEventListener('click', () => {
+            loginSection.classList.add('hidden');
+            registerSection.classList.remove('hidden');
+            registerSection.classList.add('animate-fade-in');
+        });
+
+        switchToLogin.addEventListener('click', () => {
+            registerSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            loginSection.classList.add('animate-fade-in');
+        });
+
+        // Password Toggle
+        function setupPasswordToggle(passwordId, toggleId) {
+            const passwordInput = document.getElementById(passwordId);
+            const toggleButton = document.getElementById(toggleId);
+            
+            toggleButton.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                toggleButton.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+            });
+        }
+
+        setupPasswordToggle('login-password', 'toggle-login-password');
+        setupPasswordToggle('register-password', 'toggle-register-password');
+
+        // Form Validation and Submission
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (email && password) {
+                // Simulate API call
+                const submitBtn = loginForm.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+                submitBtn.disabled = true;
+                
+                setTimeout(() => {
+                    alert('Login successful! Welcome back.');
+                    loginForm.reset();
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }, 1500);
+            } else {
+                alert('Please fill in all required fields.');
+            }
+        });
+
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            
+            if (password !== confirmPassword) {
+                alert('Passwords do not match.');
+                return;
+            }
+            
+            if (password.length < 8) {
+                alert('Password must be at least 8 characters long.');
+                return;
+            }
+            
+            // Simulate API call
+            const submitBtn = registerForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            submitBtn.disabled = true;
+            
+            setTimeout(() => {
+                alert('Account created successfully! Please check your email for verification.');
+                registerForm.reset();
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                
+                // Switch back to login
+                registerSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+            }, 2000);
+        });
+
+        // Social Login Buttons
+        document.querySelectorAll('#social-login-buttons button').forEach(button => {
+            button.addEventListener('click', () => {
+                const provider = button.textContent.replace('Continue with ', '');
+                alert(`Redirecting to ${provider} authentication...`);
+            });
+        });
+
+        // Smooth Navigation
+        document.addEventListener('click', function(event) {
+            const link = event.target.closest('a[href^="#"]');
+            if (!link) return;
+            event.preventDefault();
+            const targetId = link.getAttribute('href');
+            if (targetId === '#home') {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+            // Close mobile menu if open
+            mobileMenu.classList.add('hidden');
+            mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 20) {
+                header.classList.add('shadow-md');
+            } else {
+                header.classList.remove('shadow-md');
+            }
+        });
+
+        // Input focus effects
+        document.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.classList.add('ring-2', 'ring-accent/20');
+            });
+            
+            input.addEventListener('blur', () => {
+                input.parentElement.classList.remove('ring-2', 'ring-accent/20');
+            });
+        });
+    </script>
 </body>
 </html>

@@ -46,6 +46,19 @@ static std::string extensionOf(const std::string& path)
     return path.substr(dot);
 }
 
+static bool findCgiInterpreter(const LocationConfig& location,
+                               const std::string& path,
+                               std::string& interpreter)
+{
+    std::map<std::string, std::string>::const_iterator it;
+
+    it = location.cgi_extensions.find(extensionOf(path));
+    if (it == location.cgi_extensions.end())
+        return false;
+    interpreter = it->second;
+    return true;
+}
+
 static bool isDirectory(const std::string& path)
 {
     struct stat st;
@@ -287,6 +300,11 @@ std::string Server::executeCgi(const std::string& path,
                                const LocationConfig& location)
 {
     (void) req;
+    std::string script;
+
+    if (!findCgiInterpreter(location, path, script))
+        return "";
+
     int pipefd[2];
     pipe(pipefd);
 
@@ -296,8 +314,6 @@ std::string Server::executeCgi(const std::string& path,
     {
         dup2(pipefd[1], STDOUT_FILENO);
         close(pipefd[0]);
-
-        std::string script = location.cgi_extensions.at(extensionOf(path));
 
         char *args[] = {
             (char*)script.c_str(),
@@ -450,7 +466,8 @@ void Server::handleClient(int fd)
 
    std::string full_path = localPath(*location, req.path);
 
-   if (req.method == "GET" || req.method == "POST" || req.method == "DELETE")
+   std::string cgi_interpreter;
+   if (findCgiInterpreter(*location, full_path, cgi_interpreter))
     {
         std::string output = executeCgi(full_path, req, *location);
 
@@ -459,12 +476,6 @@ void Server::handleClient(int fd)
 
         send(fd, resp.c_str(), resp.size(), 0);
         closeClient(fd);
-        return;
-    }
-    else
-    {
-        std::string resp; resp = make_response(501, "Not Implemented", "text/plain", &current_server);
-        send(fd, resp.c_str(), resp.size(), 0); closeClient(fd); 
         return;
     }
     if (req.method == "POST")
