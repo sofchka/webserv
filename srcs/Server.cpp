@@ -3,6 +3,8 @@
 #include <sys/stat.h>
 #include <cstdio>
 #include <cerrno>
+#include <cctype>
+#include <limits>
 
 static std::string joinPath(const std::string& left, const std::string& right)
 {
@@ -73,6 +75,96 @@ static bool existsPath(const std::string& path)
     return stat(path.c_str(), &st) == 0;
 }
 
+static int hexValue(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+static std::string decodePathForSecurity(const std::string& path)
+{
+    std::string decoded;
+
+    for (size_t i = 0; i < path.size(); i++)
+    {
+        if (path[i] == '%' && i + 2 < path.size())
+        {
+            int high = hexValue(path[i + 1]);
+            int low = hexValue(path[i + 2]);
+
+            if (high >= 0 && low >= 0)
+            {
+                decoded += static_cast<char>(high * 16 + low);
+                i += 2;
+                continue;
+            }
+        }
+        decoded += path[i];
+    }
+    return decoded;
+}
+
+static bool hasPathTraversal(const std::string& path)
+{
+    std::string decoded = decodePathForSecurity(path);
+    size_t start = 0;
+
+    if (decoded.find('\0') != std::string::npos ||
+        decoded.find('\\') != std::string::npos)
+        return true;
+    while (start <= decoded.size())
+    {
+        size_t slash = decoded.find('/', start);
+        std::string part;
+
+        if (slash == std::string::npos)
+            part = decoded.substr(start);
+        else
+            part = decoded.substr(start, slash - start);
+        if (part == "..")
+            return true;
+        if (slash == std::string::npos)
+            break;
+        start = slash + 1;
+    }
+    return false;
+}
+
+static std::string statusText(int status)
+{
+    switch (status)
+    {
+        case 200: return "200 OK";
+        case 201: return "201 Created";
+        case 204: return "204 No Content";
+        case 301: return "301 Moved Permanently";
+        case 302: return "302 Found";
+        case 400: return "400 Bad Request";
+        case 403: return "403 Forbidden";
+        case 404: return "404 Not Found";
+        case 500: return "500 Internal Server Error";
+        case 502: return "502 Bad Gateway";
+    }
+    if (status >= 100 && status <= 599)
+        return to_str(status) + " CGI Status";
+    return "200 OK";
+}
+
+static std::string headerValue(const Request& req, const std::string& name)
+{
+    std::map<std::string, std::string>::const_iterator it;
+
+    it = req.headers.find(name);
+    if (it == req.headers.end())
+        return "";
+    return it->second;
+}
+
 static std::string basenameOf(const std::string& path)
 {
     size_t slash = path.find_last_of('/');
@@ -80,6 +172,108 @@ static std::string basenameOf(const std::string& path)
     if (slash == std::string::npos || slash + 1 >= path.size())
         return "upload.bin";
     return path.substr(slash + 1);
+}
+
+static std::string lowerHeaderName(const std::string& value)
+{
+    std::string out = value;
+
+    for (size_t i = 0; i < out.size(); i++)
+        out[i] = static_cast<char>(std::tolower(
+            static_cast<unsigned char>(out[i])));
+    return out;
+}
+
+static void trimHeaderSpan(const std::string& s, size_t& first, size_t& last)
+{
+    while (first < last && (s[first] == ' ' || s[first] == '\t'))
+        first++;
+    while (last > first && (s[last - 1] == ' ' || s[last - 1] == '\t'))
+        last--;
+}
+
+static bool parseHeaderContentLength(const std::string& value, size_t& length)
+{
+    size_t out = 0;
+
+    if (value.empty())
+        return false;
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        unsigned char c = static_cast<unsigned char>(value[i]);
+
+        if (!std::isdigit(c))
+            return false;
+        if (out > (std::numeric_limits<size_t>::max()
+                   - static_cast<size_t>(c - '0')) / 10)
+            return false;
+        out = out * 10 + static_cast<size_t>(c - '0');
+    }
+    length = out;
+    return true;
+}
+
+static bool hasCompleteRequestBody(const std::string& request,
+                                   bool& bad_request,
+                                   size_t& content_length)
+{
+    size_t headers_end = request.find("\r\n\r\n");
+    bool saw_content_length = false;
+    size_t line_end;
+    size_t pos;
+
+    bad_request = false;
+    content_length = 0;
+    if (headers_end == std::string::npos)
+        return false;
+    line_end = request.find("\r\n");
+    if (line_end == std::string::npos)
+        return true;
+    pos = line_end + 2;
+    while (pos < headers_end)
+    {
+        size_t end = request.find("\r\n", pos);
+        size_t colon;
+        size_t name_first = pos;
+        size_t name_last;
+        size_t value_first;
+        size_t value_last;
+        std::string name;
+        std::string value;
+        size_t parsed = 0;
+
+        if (end == std::string::npos || end > headers_end)
+            break;
+        colon = request.find(':', pos);
+        if (colon == std::string::npos || colon >= end)
+        {
+            pos = end + 2;
+            continue;
+        }
+        name_last = colon;
+        trimHeaderSpan(request, name_first, name_last);
+        value_first = colon + 1;
+        value_last = end;
+        trimHeaderSpan(request, value_first, value_last);
+        name = lowerHeaderName(request.substr(name_first,
+                                              name_last - name_first));
+        if (name == "content-length")
+        {
+            value = request.substr(value_first, value_last - value_first);
+            if (!parseHeaderContentLength(value, parsed) ||
+                (saw_content_length && parsed != content_length))
+            {
+                bad_request = true;
+                return true;
+            }
+            saw_content_length = true;
+            content_length = parsed;
+        }
+        pos = end + 2;
+    }
+    if (!saw_content_length)
+        return true;
+    return request.size() >= headers_end + 4 + content_length;
 }
 
 static std::string autoIndexPage(const std::string& request_path,
@@ -105,6 +299,182 @@ static std::string autoIndexPage(const std::string& request_path,
     closedir(dir);
     body += "</ul></body></html>";
     return body;
+}
+
+static std::string httpHeaderNameForCgi(const std::string& header)
+{
+    std::string name = "HTTP_";
+
+    for (size_t i = 0; i < header.size(); i++)
+    {
+        if (header[i] == '-')
+            name += '_';
+        else
+            name += static_cast<char>(std::toupper(
+                static_cast<unsigned char>(header[i])));
+    }
+    return name;
+}
+
+static void addEnv(std::vector<std::string>& env,
+                   const std::string& name,
+                   const std::string& value)
+{
+    env.push_back(name + "=" + value);
+}
+
+static std::vector<std::string> buildCgiEnv(const std::string& path,
+                                            const Request& req)
+{
+    std::vector<std::string> env;
+    std::map<std::string, std::string>::const_iterator it;
+    std::string content_length = headerValue(req, "content-length");
+    std::string content_type = headerValue(req, "content-type");
+
+    addEnv(env, "GATEWAY_INTERFACE", "CGI/1.1");
+    addEnv(env, "SERVER_PROTOCOL", req.version);
+    addEnv(env, "SERVER_SOFTWARE", "webserv");
+    addEnv(env, "REQUEST_METHOD", req.method);
+    addEnv(env, "SCRIPT_FILENAME", path);
+    addEnv(env, "SCRIPT_NAME", req.path);
+    addEnv(env, "QUERY_STRING", req.query);
+    addEnv(env, "PATH_INFO", "");
+    addEnv(env, "REDIRECT_STATUS", "200");
+    addEnv(env, "CONTENT_LENGTH", content_length);
+    addEnv(env, "CONTENT_TYPE", content_type);
+    for (it = req.headers.begin(); it != req.headers.end(); ++it)
+    {
+        if (it->first != "content-length" && it->first != "content-type")
+            addEnv(env, httpHeaderNameForCgi(it->first), it->second);
+    }
+    return env;
+}
+
+static char** makeEnvp(std::vector<std::string>& env)
+{
+    char** envp = new char*[env.size() + 1];
+
+    for (size_t i = 0; i < env.size(); i++)
+        envp[i] = const_cast<char*>(env[i].c_str());
+    envp[env.size()] = NULL;
+    return envp;
+}
+
+static bool writeAllToFd(int fd, const std::string& data)
+{
+    size_t offset = 0;
+
+    while (offset < data.size())
+    {
+        ssize_t written = write(fd,
+                                data.c_str() + offset,
+                                data.size() - offset);
+
+        if (written < 0 && errno == EINTR)
+            continue;
+        if (written <= 0)
+            return false;
+        offset += static_cast<size_t>(written);
+    }
+    return true;
+}
+
+static int parseCgiStatus(const std::string& value)
+{
+    size_t i = 0;
+    int status = 0;
+
+    while (i < value.size() && value[i] == ' ')
+        i++;
+    while (i < value.size() && std::isdigit(
+        static_cast<unsigned char>(value[i])))
+    {
+        status = status * 10 + value[i] - '0';
+        i++;
+    }
+    if (status < 100 || status > 599)
+        return 200;
+    return status;
+}
+
+static std::string buildCgiHttpResponse(const std::string& cgi_output)
+{
+    size_t header_end = cgi_output.find("\r\n\r\n");
+    size_t separator_len = 4;
+    std::string headers_block;
+    std::string body;
+    std::string content_type = "text/html";
+    std::vector<std::string> headers;
+    int status = 200;
+
+    if (header_end == std::string::npos)
+    {
+        header_end = cgi_output.find("\n\n");
+        separator_len = 2;
+    }
+    if (header_end == std::string::npos)
+    {
+        headers_block = "";
+        body = cgi_output;
+    }
+    else
+    {
+        headers_block = cgi_output.substr(0, header_end);
+        body = cgi_output.substr(header_end + separator_len);
+    }
+
+    for (size_t pos = 0; pos < headers_block.size();)
+    {
+        size_t end = headers_block.find('\n', pos);
+        std::string line;
+        size_t colon;
+        size_t first;
+        size_t last;
+        std::string name;
+        std::string value;
+
+        if (end == std::string::npos)
+            end = headers_block.size();
+        line = headers_block.substr(pos, end - pos);
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
+        colon = line.find(':');
+        if (colon != std::string::npos)
+        {
+            first = 0;
+            last = colon;
+            trimHeaderSpan(line, first, last);
+            name = line.substr(first, last - first);
+            first = colon + 1;
+            last = line.size();
+            trimHeaderSpan(line, first, last);
+            value = line.substr(first, last - first);
+            if (lowerHeaderName(name) == "status")
+                status = parseCgiStatus(value);
+            else if (lowerHeaderName(name) == "content-type")
+                content_type = value;
+            else if (lowerHeaderName(name) != "content-length" &&
+                     lowerHeaderName(name) != "connection")
+                headers.push_back(name + ": " + value);
+            if (lowerHeaderName(name) == "location" && status == 200)
+                status = 302;
+        }
+        pos = end + 1;
+    }
+
+    std::string response;
+
+    response += "HTTP/1.1 ";
+    response += statusText(status);
+    response += "\r\nConnection: close\r\nContent-Type: ";
+    response += content_type;
+    response += "\r\nContent-Length: ";
+    response += to_str(body.size());
+    for (size_t i = 0; i < headers.size(); i++)
+        response += "\r\n" + headers[i];
+    response += "\r\n\r\n";
+    response += body;
+    return response;
 }
 
 Server::Server()
@@ -295,25 +665,43 @@ void Server::flushClient(int fd)
         closeClient(fd);
 }
 
-std::string Server::executeCgi(const std::string& path,
-                               const Request& req,
-                               const LocationConfig& location)
+bool Server::executeCgi(const std::string& path,
+                        const Request& req,
+                        const LocationConfig& location,
+                        std::string& output)
 {
-    (void) req;
     std::string script;
 
     if (!findCgiInterpreter(location, path, script))
-        return "";
+        return false;
+    if (!existsPath(path))
+        return false;
 
-    int pipefd[2];
-    pipe(pipefd);
+    int input_pipe[2];
+    int output_pipe[2];
+
+    if (pipe(input_pipe) < 0)
+        return false;
+    if (pipe(output_pipe) < 0)
+    {
+        close(input_pipe[0]);
+        close(input_pipe[1]);
+        return false;
+    }
 
     pid_t pid = fork();
 
     if (pid == 0)
     {
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[0]);
+        std::vector<std::string> env = buildCgiEnv(path, req);
+        char** envp = makeEnvp(env);
+
+        dup2(input_pipe[0], STDIN_FILENO);
+        dup2(output_pipe[1], STDOUT_FILENO);
+        close(input_pipe[0]);
+        close(input_pipe[1]);
+        close(output_pipe[0]);
+        close(output_pipe[1]);
 
         char *args[] = {
             (char*)script.c_str(),
@@ -321,42 +709,65 @@ std::string Server::executeCgi(const std::string& path,
             NULL
         };
 
-        execve(script.c_str(), args, NULL);
+        execve(script.c_str(), args, envp);
         exit(1);
     }
-    else
+    if (pid < 0)
     {
-        char buffer[1024];
-        std::string result;
-
-        close(pipefd[1]);
-
-        while (true)
-        {
-            int n = read(pipefd[0], buffer, sizeof(buffer));
-            if (n <= 0) 
-                break;
-            result.append(buffer, n);
-        }
-
-        close(pipefd[0]);
-        waitpid(pid, NULL, 0);
-
-        return result;
+        close(input_pipe[0]);
+        close(input_pipe[1]);
+        close(output_pipe[0]);
+        close(output_pipe[1]);
+        return false;
     }
+
+    char buffer[1024];
+    int status = 0;
+
+    close(input_pipe[0]);
+    close(output_pipe[1]);
+    if (!writeAllToFd(input_pipe[1], req.body))
+    {
+        close(input_pipe[1]);
+        close(output_pipe[0]);
+        waitpid(pid, &status, 0);
+        return false;
+    }
+    close(input_pipe[1]);
+
+    while (true)
+    {
+        ssize_t n = read(output_pipe[0], buffer, sizeof(buffer));
+
+        if (n < 0 && errno == EINTR)
+            continue;
+        if (n <= 0)
+            break;
+        output.append(buffer, n);
+    }
+    close(output_pipe[0]);
+    waitpid(pid, &status, 0);
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        return false;
+    return true;
 }
 
 void Server::handleClient(int fd)
 {
     char buffer[1024];
     int bytes = recv(fd, buffer, sizeof(buffer), 0);
+    bool bad_request;
+    size_t content_length;
+
     if (bytes <= 0)
     {
         closeClient(fd);
         return;
     }
     read_buffer[fd].append(buffer, bytes);
-    if (read_buffer[fd].find("\r\n\r\n") == std::string::npos)
+    if (!hasCompleteRequestBody(read_buffer[fd],
+                                bad_request,
+                                content_length))
         return;
     std::string raw_request = read_buffer[fd];
     Request req = parse_f(raw_request);
@@ -369,12 +780,50 @@ void Server::handleClient(int fd)
     }
 
     const ServerConfig& current_server = server_configs[server_index->second];
+    if (content_length > current_server.client_max_body_size)
+    {
+        std::string resp;
+
+        resp = make_response(413,
+                             "Payload Too Large",
+                             "text/plain",
+                             &current_server);
+
+        send(fd,
+             resp.c_str(),
+             resp.size(),
+             0);
+
+        closeClient(fd);
+
+        return;
+    }
+    if (bad_request)
+        req.valid = false;
     if (!req.valid)
     {
         std::string resp;
 
         resp = make_response(400,
                              "Bad Request",
+                             "text/plain",
+                             &current_server);
+
+        send(fd,
+             resp.c_str(),
+             resp.size(),
+             0);
+
+        closeClient(fd);
+
+        return;
+    }
+    if (hasPathTraversal(req.path))
+    {
+        std::string resp;
+
+        resp = make_response(403,
+                             "Forbidden",
                              "text/plain",
                              &current_server);
 
@@ -469,10 +918,23 @@ void Server::handleClient(int fd)
    std::string cgi_interpreter;
    if (findCgiInterpreter(*location, full_path, cgi_interpreter))
     {
-        std::string output = executeCgi(full_path, req, *location);
+        std::string output;
 
-        std::string resp =
-            make_response(200, output, "text/html", &current_server);
+        if (!executeCgi(full_path, req, *location, output))
+        {
+            std::string resp;
+
+            resp = make_response(502,
+                                 "Bad Gateway",
+                                 "text/plain",
+                                 &current_server);
+
+            send(fd, resp.c_str(), resp.size(), 0);
+            closeClient(fd);
+            return;
+        }
+
+        std::string resp = buildCgiHttpResponse(output);
 
         send(fd, resp.c_str(), resp.size(), 0);
         closeClient(fd);

@@ -1,0 +1,8 @@
+What’s left / risky:
+--> Transfer-Encoding: chunked is detected but not decoded.
+--> No virtual host selection via Host header despite config support for multiple servers.
+--> Location matching can overmatch prefixes, e.g. /uploadx matching /upload.
+--> Upload behavior is simplistic and does not handle multipart form uploads.
+--> No timeout handling, request/header size limits, or robust malformed request behavior.
+--> web/index.html has some broken HTML/Tailwind typos like </heads> and p	-6, px	-4, mb	-4.
+--> README is basically empty, and I don’t see tests.

@@ -52,7 +52,7 @@ class Server
         Server(const Server& other);
         Server& operator=(const Server& other);
         ~Server();
-        std::string executeCgi(const std::string& path,const Request& req,const LocationConfig& location);
+        bool executeCgi(const std::string& path,const Request& req,const LocationConfig& location,std::string& output);
         void init(const std::string& config_path);
         void run();
         void acceptClient(size_t server_index);
