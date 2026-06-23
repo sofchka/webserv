@@ -213,12 +213,117 @@ static bool parseHeaderContentLength(const std::string& value, size_t& length)
     return true;
 }
 
+static bool hasTransferEncodingChunked(const std::string& value)
+{
+    std::string lowered = lowerHeaderName(value);
+    size_t start = 0;
+
+    while (start <= lowered.size())
+    {
+        size_t comma = lowered.find(',', start);
+        size_t first = start;
+        size_t last;
+
+        if (comma == std::string::npos)
+            last = lowered.size();
+        else
+            last = comma;
+        trimHeaderSpan(lowered, first, last);
+        if (lowered.substr(first, last - first) == "chunked")
+            return true;
+        if (comma == std::string::npos)
+            break;
+        start = comma + 1;
+    }
+    return false;
+}
+
+static bool parseChunkSizeLine(const std::string& line, size_t& size)
+{
+    size_t out = 0;
+    size_t i = 0;
+
+    if (line.empty())
+        return false;
+    while (i < line.size() && line[i] != ';')
+    {
+        int digit = hexValue(line[i]);
+
+        if (digit < 0)
+            return false;
+        if (out > (std::numeric_limits<size_t>::max()
+                   - static_cast<size_t>(digit)) / 16)
+            return false;
+        out = out * 16 + static_cast<size_t>(digit);
+        i++;
+    }
+    if (i == 0)
+        return false;
+    size = out;
+    return true;
+}
+
+static bool hasCompleteChunkedBody(const std::string& request,
+                                   size_t body_start,
+                                   bool& bad_request,
+                                   size_t& decoded_length)
+{
+    size_t pos = body_start;
+
+    decoded_length = 0;
+    while (true)
+    {
+        size_t line_end = request.find("\r\n", pos);
+        size_t chunk_size = 0;
+
+        if (line_end == std::string::npos)
+            return false;
+        if (!parseChunkSizeLine(request.substr(pos, line_end - pos),
+                                chunk_size))
+        {
+            bad_request = true;
+            return true;
+        }
+        pos = line_end + 2;
+        if (chunk_size == 0)
+        {
+            while (true)
+            {
+                line_end = request.find("\r\n", pos);
+                if (line_end == std::string::npos)
+                    return false;
+                if (line_end == pos)
+                    return true;
+                pos = line_end + 2;
+            }
+        }
+        if (chunk_size > std::numeric_limits<size_t>::max() - decoded_length)
+        {
+            bad_request = true;
+            return true;
+        }
+        decoded_length += chunk_size;
+        if (chunk_size > request.size() - pos)
+            return false;
+        pos += chunk_size;
+        if (pos + 2 > request.size())
+            return false;
+        if (request[pos] != '\r' || request[pos + 1] != '\n')
+        {
+            bad_request = true;
+            return true;
+        }
+        pos += 2;
+    }
+}
+
 static bool hasCompleteRequestBody(const std::string& request,
                                    bool& bad_request,
                                    size_t& content_length)
 {
     size_t headers_end = request.find("\r\n\r\n");
     bool saw_content_length = false;
+    bool chunked = false;
     size_t line_end;
     size_t pos;
 
@@ -269,8 +374,19 @@ static bool hasCompleteRequestBody(const std::string& request,
             saw_content_length = true;
             content_length = parsed;
         }
+        else if (name == "transfer-encoding")
+        {
+            value = request.substr(value_first, value_last - value_first);
+            if (hasTransferEncodingChunked(value))
+                chunked = true;
+        }
         pos = end + 2;
     }
+    if (chunked)
+        return hasCompleteChunkedBody(request,
+                                      headers_end + 4,
+                                      bad_request,
+                                      content_length);
     if (!saw_content_length)
         return true;
     return request.size() >= headers_end + 4 + content_length;

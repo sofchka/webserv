@@ -1,5 +1,4 @@
 What’s left / risky:
---> Transfer-Encoding: chunked is detected but not decoded.
 --> No virtual host selection via Host header despite config support for multiple servers.
 --> Location matching can overmatch prefixes, e.g. /uploadx matching /upload.
 --> Upload behavior is simplistic and does not handle multipart form uploads.

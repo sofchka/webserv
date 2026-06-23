@@ -57,6 +57,82 @@ static bool parse_content_length(const std::string& value, size_t& length)
     return true;
 }
 
+static int chunk_hex_value(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+static bool parse_chunk_size(const std::string& line, size_t& size)
+{
+    size_t out = 0;
+    size_t i = 0;
+
+    if (line.empty())
+        return false;
+    while (i < line.size() && line[i] != ';')
+    {
+        int digit = chunk_hex_value(line[i]);
+
+        if (digit < 0)
+            return false;
+        if (out > (std::numeric_limits<size_t>::max()
+                   - static_cast<size_t>(digit)) / 16)
+            return false;
+        out = out * 16 + static_cast<size_t>(digit);
+        i++;
+    }
+    if (i == 0)
+        return false;
+    size = out;
+    return true;
+}
+
+static bool decode_chunked_body(const std::string& encoded,
+                                std::string& decoded)
+{
+    size_t pos = 0;
+
+    decoded.clear();
+    while (true)
+    {
+        size_t line_end = encoded.find("\r\n", pos);
+        size_t chunk_size = 0;
+
+        if (line_end == std::string::npos)
+            return false;
+        if (!parse_chunk_size(encoded.substr(pos, line_end - pos),
+                              chunk_size))
+            return false;
+        pos = line_end + 2;
+        if (chunk_size == 0)
+        {
+            while (true)
+            {
+                line_end = encoded.find("\r\n", pos);
+                if (line_end == std::string::npos)
+                    return false;
+                if (line_end == pos)
+                    return true;
+                pos = line_end + 2;
+            }
+        }
+        if (chunk_size > encoded.size() - pos)
+            return false;
+        decoded.append(encoded, pos, chunk_size);
+        pos += chunk_size;
+        if (pos + 2 > encoded.size() ||
+            encoded[pos] != '\r' || encoded[pos + 1] != '\n')
+            return false;
+        pos += 2;
+    }
+}
+
 static bool valid_method(const std::string& method)
 {
     if (method.empty())
@@ -170,7 +246,16 @@ Request parse_f(std::string request)
     }
 
     req.body = request.substr(headers_end + 4);
-    if (saw_content_length && req.body.size() > req.content_length)
+    if (req.chunked)
+    {
+        std::string decoded;
+
+        if (!decode_chunked_body(req.body, decoded))
+            return Request();
+        req.body = decoded;
+        req.content_length = req.body.size();
+    }
+    else if (saw_content_length && req.body.size() > req.content_length)
         req.body.erase(req.content_length);
     req.valid = true;
     return req;
