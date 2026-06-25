@@ -5,6 +5,12 @@
 #include <cerrno>
 #include <cctype>
 #include <limits>
+#include <ctime>
+
+static const size_t MAX_REQUEST_LINE_SIZE = 4096;
+static const size_t MAX_HEADER_SIZE = 8192;
+static const size_t MAX_REQUEST_BUFFER_SIZE = 16 * 1024 * 1024;
+static const time_t CLIENT_TIMEOUT_SECONDS = 30;
 
 static std::string joinPath(const std::string& left, const std::string& right)
 {
@@ -165,6 +171,104 @@ static std::string headerValue(const Request& req, const std::string& name)
     return it->second;
 }
 
+static std::string lowerAscii(const std::string& value)
+{
+    std::string out = value;
+
+    for (size_t i = 0; i < out.size(); i++)
+        out[i] = static_cast<char>(std::tolower(
+            static_cast<unsigned char>(out[i])));
+    return out;
+}
+
+static bool parseHostPort(const std::string& value,
+                          std::string& host,
+                          int& port,
+                          bool& has_port)
+{
+    size_t colon = value.find(':');
+    size_t end = value.size();
+
+    host = value;
+    port = 0;
+    has_port = false;
+    if (colon == std::string::npos)
+    {
+        host = lowerAscii(value);
+        return !host.empty();
+    }
+    if (value.find(':', colon + 1) != std::string::npos || colon == 0)
+        return false;
+    host = lowerAscii(value.substr(0, colon));
+    if (colon + 1 == end)
+        return false;
+    has_port = true;
+    for (size_t i = colon + 1; i < end; i++)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(value[i])))
+            return false;
+        port = port * 10 + (value[i] - '0');
+        if (port > 65535)
+            return false;
+    }
+    return !host.empty() && port > 0;
+}
+
+static bool sameListenSocket(const ServerConfig& left,
+                             const ServerConfig& right)
+{
+    return left.host == right.host && left.port == right.port;
+}
+
+static bool canServeAcceptedSocket(const ServerConfig& candidate,
+                                   const ServerConfig& accepted)
+{
+    if (candidate.port != accepted.port)
+        return false;
+    return candidate.host == accepted.host ||
+           candidate.host == "0.0.0.0" ||
+           accepted.host == "0.0.0.0";
+}
+
+static bool serverNameMatches(const ServerConfig& server,
+                              const std::string& host)
+{
+    if (lowerAscii(server.host) == host)
+        return true;
+    for (size_t i = 0; i < server.server_names.size(); i++)
+    {
+        if (lowerAscii(server.server_names[i]) == host)
+            return true;
+    }
+    return false;
+}
+
+static size_t selectServerIndex(const std::vector<ServerConfig>& servers,
+                                size_t default_index,
+                                const Request& req)
+{
+    if (default_index >= servers.size())
+        return default_index;
+
+    std::string host;
+    int host_port;
+    bool has_port;
+    std::string host_header = headerValue(req, "host");
+
+    if (host_header.empty() ||
+        !parseHostPort(host_header, host, host_port, has_port))
+        return default_index;
+    if (has_port && host_port != servers[default_index].port)
+        return default_index;
+    for (size_t i = 0; i < servers.size(); i++)
+    {
+        if (canServeAcceptedSocket(servers[i], servers[default_index]) &&
+            serverNameMatches(servers[i], host))
+            return i;
+    }
+    return default_index;
+}
+
 static std::string basenameOf(const std::string& path)
 {
     size_t slash = path.find_last_of('/');
@@ -172,6 +276,215 @@ static std::string basenameOf(const std::string& path)
     if (slash == std::string::npos || slash + 1 >= path.size())
         return "upload.bin";
     return path.substr(slash + 1);
+}
+
+static std::string trimSpaces(const std::string& value)
+{
+    size_t first = 0;
+    size_t last = value.size();
+
+    while (first < last &&
+           (value[first] == ' ' || value[first] == '\t'))
+        first++;
+    while (last > first &&
+           (value[last - 1] == ' ' || value[last - 1] == '\t'))
+        last--;
+    return value.substr(first, last - first);
+}
+
+static std::string unquoteHeaderValue(const std::string& value)
+{
+    std::string out;
+
+    if (value.size() < 2 || value[0] != '"' ||
+        value[value.size() - 1] != '"')
+        return value;
+    for (size_t i = 1; i + 1 < value.size(); i++)
+    {
+        if (value[i] == '\\' && i + 2 < value.size())
+            i++;
+        out += value[i];
+    }
+    return out;
+}
+
+static bool headerParameter(const std::string& header,
+                            const std::string& name,
+                            std::string& value)
+{
+    size_t start = 0;
+    std::string wanted = lowerAscii(name);
+
+    while (start <= header.size())
+    {
+        size_t semi = header.find(';', start);
+        size_t equals;
+        std::string part;
+
+        if (semi == std::string::npos)
+            part = header.substr(start);
+        else
+            part = header.substr(start, semi - start);
+        part = trimSpaces(part);
+        equals = part.find('=');
+        if (equals != std::string::npos &&
+            lowerAscii(trimSpaces(part.substr(0, equals))) == wanted)
+        {
+            value = unquoteHeaderValue(trimSpaces(part.substr(equals + 1)));
+            return true;
+        }
+        if (semi == std::string::npos)
+            break;
+        start = semi + 1;
+    }
+    return false;
+}
+
+static bool multipartBoundary(const Request& req,
+                              std::string& boundary,
+                              bool& bad_request)
+{
+    std::string content_type = headerValue(req, "content-type");
+    size_t semi = content_type.find(';');
+    std::string media_type;
+
+    bad_request = false;
+    if (semi == std::string::npos)
+        media_type = trimSpaces(content_type);
+    else
+        media_type = trimSpaces(content_type.substr(0, semi));
+    if (lowerAscii(media_type) != "multipart/form-data")
+        return false;
+    if (!headerParameter(content_type, "boundary", boundary) ||
+        boundary.empty())
+    {
+        bad_request = true;
+        return true;
+    }
+    return true;
+}
+
+static bool safeUploadFilename(const std::string& raw,
+                               std::string& filename)
+{
+    size_t slash = raw.find_last_of("/\\");
+
+    if (slash == std::string::npos)
+        filename = raw;
+    else
+        filename = raw.substr(slash + 1);
+    if (filename.empty() || filename == "." || filename == "..")
+        return false;
+    if (filename.find('/') != std::string::npos ||
+        filename.find('\\') != std::string::npos ||
+        filename.find("..") != std::string::npos)
+        return false;
+    return true;
+}
+
+static bool parsePartHeaders(const std::string& headers,
+                             std::map<std::string, std::string>& out)
+{
+    size_t pos = 0;
+
+    out.clear();
+    while (pos < headers.size())
+    {
+        size_t end = headers.find("\r\n", pos);
+        size_t colon;
+        std::string name;
+        std::string value;
+
+        if (end == std::string::npos)
+            end = headers.size();
+        if (end == pos)
+        {
+            pos = end + 2;
+            continue;
+        }
+        colon = headers.find(':', pos);
+        if (colon == std::string::npos || colon >= end || colon == pos)
+            return false;
+        name = lowerAscii(trimSpaces(headers.substr(pos, colon - pos)));
+        value = trimSpaces(headers.substr(colon + 1, end - colon - 1));
+        if (name.empty())
+            return false;
+        out[name] = value;
+        if (end == headers.size())
+            break;
+        pos = end + 2;
+    }
+    return true;
+}
+
+static bool writeUploadFile(const std::string& directory,
+                            const std::string& filename,
+                            const std::string& content)
+{
+    std::string upload_path = joinPath(directory, filename);
+    std::ofstream upload(upload_path.c_str(),
+                         std::ios::out | std::ios::binary);
+
+    if (!upload.is_open())
+        return false;
+    upload.write(content.data(), content.size());
+    return upload.good();
+}
+
+static int saveMultipartUploads(const Request& req,
+                                const LocationConfig& location,
+                                const std::string& boundary)
+{
+    std::string delimiter = "--" + boundary;
+    size_t pos = 0;
+    int uploaded = 0;
+
+    if (req.body.compare(0, delimiter.size(), delimiter) != 0)
+        return -1;
+    pos = delimiter.size();
+    while (pos < req.body.size())
+    {
+        std::map<std::string, std::string> part_headers;
+        std::map<std::string, std::string>::const_iterator disposition;
+        std::string filename;
+        size_t headers_end;
+        size_t next_delimiter;
+        size_t content_start;
+        size_t content_end;
+
+        if (req.body.compare(pos, 2, "--") == 0)
+            return uploaded;
+        if (req.body.compare(pos, 2, "\r\n") != 0)
+            return -1;
+        pos += 2;
+        headers_end = req.body.find("\r\n\r\n", pos);
+        if (headers_end == std::string::npos)
+            return -1;
+        if (!parsePartHeaders(req.body.substr(pos, headers_end - pos),
+                              part_headers))
+            return -1;
+        content_start = headers_end + 4;
+        next_delimiter = req.body.find("\r\n" + delimiter, content_start);
+        if (next_delimiter == std::string::npos)
+            return -1;
+        content_end = next_delimiter;
+        disposition = part_headers.find("content-disposition");
+        if (disposition != part_headers.end() &&
+            headerParameter(disposition->second, "filename", filename) &&
+            !filename.empty())
+        {
+            if (!safeUploadFilename(filename, filename))
+                return -1;
+            if (!writeUploadFile(location.upload_store,
+                                 filename,
+                                 req.body.substr(content_start,
+                                                 content_end - content_start)))
+                return -2;
+            uploaded++;
+        }
+        pos = next_delimiter + 2 + delimiter.size();
+    }
+    return -1;
 }
 
 static std::string lowerHeaderName(const std::string& value)
@@ -609,12 +922,14 @@ Server& Server::operator=(const Server& other)
         clients = other.clients;
         config = other.config;
         server_fds = other.server_fds;
+        listener_defaults = other.listener_defaults;
         server_configs = other.server_configs;
         client_servers = other.client_servers;
         read_buffer = other.read_buffer;
         write_buffer = other.write_buffer;
         write_offset = other.write_offset;
         close_after_write = other.close_after_write;
+        client_last_activity = other.client_last_activity;
     }
 
     return *this;
@@ -637,6 +952,22 @@ void Server::init(const std::string& config_path)
 
     for (size_t i = 0; i < servers.size(); i++)
     {
+        size_t config_index = server_configs.size();
+        bool existing_listener = false;
+
+        for (size_t j = 0; j < server_configs.size(); j++)
+        {
+            if (sameListenSocket(server_configs[j], servers[i]))
+            {
+                existing_listener = true;
+                break;
+            }
+        }
+
+        server_configs.push_back(servers[i]);
+        if (existing_listener)
+            continue;
+
         int server_fd;
 
         server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -685,7 +1016,7 @@ void Server::init(const std::string& config_path)
         }
 
         server_fds.push_back(server_fd);
-        server_configs.push_back(servers[i]);
+        listener_defaults.push_back(config_index);
 
         std::cout << "Server started on "
                   << servers[i].host << ":" << servers[i].port << "\n";
@@ -704,7 +1035,8 @@ void Server::acceptClient(size_t server_index)
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
 
     clients.push_back(client_fd);
-    client_servers[client_fd] = server_index;
+    client_servers[client_fd] = listener_defaults[server_index];
+    client_last_activity[client_fd] = std::time(NULL);
 
     std::cout << "New client connected\n";
 }
@@ -725,6 +1057,28 @@ void Server::closeClient(int fd)
     read_buffer.erase(fd);
     write_offset.erase(fd);
     close_after_write.erase(fd);
+    client_last_activity.erase(fd);
+}
+
+const ServerConfig* Server::defaultServerForClient(int fd) const
+{
+    std::map<int, size_t>::const_iterator it = client_servers.find(fd);
+
+    if (it == client_servers.end() || it->second >= server_configs.size())
+        return NULL;
+    return &server_configs[it->second];
+}
+
+void Server::sendErrorAndClose(int fd, int status, const std::string& message)
+{
+    const ServerConfig* server = defaultServerForClient(fd);
+    std::string resp = make_response(status,
+                                     message,
+                                     "text/plain",
+                                     server);
+
+    send(fd, resp.c_str(), resp.size(), 0);
+    closeClient(fd);
 }
 
 ssize_t Server::send(int fd, const char* data, size_t size, int flags)
@@ -765,9 +1119,11 @@ void Server::flushClient(int fd)
         write_buffer.erase(fd);
         write_offset.erase(fd);
         close_after_write.erase(fd);
+        client_last_activity.erase(fd);
         return;
     }
 
+    client_last_activity[fd] = std::time(NULL);
     offset += static_cast<size_t>(bytes);
     if (offset < out->second.size())
     {
@@ -779,6 +1135,34 @@ void Server::flushClient(int fd)
     write_offset.erase(fd);
     if (close_after_write.erase(fd) != 0)
         closeClient(fd);
+}
+
+void Server::closeTimedOutClients()
+{
+    time_t now = std::time(NULL);
+    size_t i = 0;
+
+    while (i < clients.size())
+    {
+        int fd = clients[i];
+        std::map<int, time_t>::iterator last = client_last_activity.find(fd);
+
+        if (write_buffer.find(fd) != write_buffer.end())
+        {
+            i++;
+            continue;
+        }
+        if (last == client_last_activity.end())
+            client_last_activity[fd] = now;
+        else if (now - last->second >= CLIENT_TIMEOUT_SECONDS)
+        {
+            sendErrorAndClose(fd, 408, "Request Timeout");
+            if (i < clients.size() && clients[i] == fd)
+                i++;
+        }
+        else
+            i++;
+    }
 }
 
 bool Server::executeCgi(const std::string& path,
@@ -881,10 +1265,75 @@ void Server::handleClient(int fd)
         return;
     }
     read_buffer[fd].append(buffer, bytes);
-    if (!hasCompleteRequestBody(read_buffer[fd],
-                                bad_request,
-                                content_length))
+    client_last_activity[fd] = std::time(NULL);
+
+    if (read_buffer[fd].size() > MAX_REQUEST_BUFFER_SIZE)
+    {
+        sendErrorAndClose(fd, 413, "Payload Too Large");
         return;
+    }
+
+    size_t line_end = read_buffer[fd].find("\r\n");
+    if ((line_end != std::string::npos && line_end > MAX_REQUEST_LINE_SIZE) ||
+        (line_end == std::string::npos &&
+         read_buffer[fd].size() > MAX_REQUEST_LINE_SIZE))
+    {
+        sendErrorAndClose(fd, 414, "URI Too Long");
+        return;
+    }
+
+    size_t headers_end = read_buffer[fd].find("\r\n\r\n");
+    if (headers_end == std::string::npos &&
+        read_buffer[fd].size() > MAX_HEADER_SIZE)
+    {
+        sendErrorAndClose(fd, 431, "Request Header Fields Too Large");
+        return;
+    }
+    if (headers_end != std::string::npos &&
+        headers_end + 4 > MAX_HEADER_SIZE)
+    {
+        sendErrorAndClose(fd, 431, "Request Header Fields Too Large");
+        return;
+    }
+
+    bool complete_request = hasCompleteRequestBody(read_buffer[fd],
+                                                   bad_request,
+                                                   content_length);
+    if (bad_request)
+    {
+        sendErrorAndClose(fd, 400, "Bad Request");
+        return;
+    }
+    if (!complete_request)
+    {
+        if (headers_end != std::string::npos && content_length > 0)
+        {
+            std::string header_only = read_buffer[fd].substr(0,
+                                                            headers_end + 4);
+            Request header_req = parse_f(header_only);
+            std::map<int, size_t>::iterator server_index;
+
+            server_index = client_servers.find(fd);
+            if (server_index == client_servers.end())
+            {
+                closeClient(fd);
+                return;
+            }
+            size_t current_index = server_index->second;
+
+            if (header_req.valid)
+                current_index = selectServerIndex(server_configs,
+                                                  current_index,
+                                                  header_req);
+            if (current_index < server_configs.size() &&
+                content_length > server_configs[current_index].client_max_body_size)
+            {
+                sendErrorAndClose(fd, 413, "Payload Too Large");
+                return;
+            }
+        }
+        return;
+    }
     std::string raw_request = read_buffer[fd];
     Request req = parse_f(raw_request);
     read_buffer[fd].clear();
@@ -895,7 +1344,10 @@ void Server::handleClient(int fd)
         return;
     }
 
-    const ServerConfig& current_server = server_configs[server_index->second];
+    size_t current_index = selectServerIndex(server_configs,
+                                             server_index->second,
+                                             req);
+    const ServerConfig& current_server = server_configs[current_index];
     if (content_length > current_server.client_max_body_size)
     {
         std::string resp;
@@ -1066,6 +1518,77 @@ void Server::handleClient(int fd)
                                  "Forbidden",
                                  "text/plain",
                                  &current_server);
+
+            send(fd,
+                 resp.c_str(),
+                 resp.size(),
+                 0);
+
+            closeClient(fd);
+
+            return;
+        }
+
+        std::string boundary;
+        bool bad_multipart;
+        bool is_multipart = multipartBoundary(req, boundary, bad_multipart);
+
+        if (is_multipart)
+        {
+            int uploaded;
+
+            if (bad_multipart)
+                uploaded = -1;
+            else
+                uploaded = saveMultipartUploads(req, *location, boundary);
+            if (uploaded < 0)
+            {
+                std::string resp;
+                int status = 400;
+                std::string message = "Bad Request";
+
+                if (uploaded == -2)
+                {
+                    status = 500;
+                    message = "Internal Server Error";
+                }
+                resp = make_response(status,
+                                     message,
+                                     "text/plain",
+                                     &current_server);
+
+                send(fd,
+                     resp.c_str(),
+                     resp.size(),
+                     0);
+
+                closeClient(fd);
+
+                return;
+            }
+            if (uploaded == 0)
+            {
+                std::string resp;
+
+                resp = make_response(400,
+                                     "No file uploaded",
+                                     "text/plain",
+                                     &current_server);
+
+                send(fd,
+                     resp.c_str(),
+                     resp.size(),
+                     0);
+
+                closeClient(fd);
+
+                return;
+            }
+
+            std::string resp = make_response(201,
+                                             "Created",
+                                             "text/plain",
+                                             &current_server);
 
             send(fd,
                  resp.c_str(),
@@ -1300,9 +1823,13 @@ void Server::run()
     {
         fd_set readfds;
         fd_set writefds;
+        struct timeval timeout;
 
+        closeTimedOutClients();
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
 
         int max_fd = -1;
 
@@ -1330,7 +1857,7 @@ void Server::run()
                           &readfds,
                           &writefds,
                           NULL,
-                          NULL);
+                          &timeout);
         if (activity < 0)
         {
             perror("select");

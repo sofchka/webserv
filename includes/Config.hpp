@@ -32,6 +32,7 @@ struct ServerConfig
 {
     std::string host;                                      // "0.0.0.0"
     int port;                                              // 8080
+    std::vector<std::string> server_names;                 // Host header names
     std::map<int, std::string> error_pages;                // 404 -> "web/error/404.html"
     std::size_t client_max_body_size;                      // 1000000 = 1MB
     std::vector<LocationConfig> locations;

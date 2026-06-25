@@ -35,6 +35,17 @@ const ServerConfig* Config::findServer(const std::string& host, int port) const
     return NULL;
 }
 
+static bool locationPathMatches(const std::string& location_path,
+                                const std::string& request_path)
+{
+    if (location_path == "/")
+        return !request_path.empty() && request_path[0] == '/';
+    if (request_path.compare(0, location_path.size(), location_path) != 0)
+        return false;
+    return request_path.size() == location_path.size() ||
+           request_path[location_path.size()] == '/';
+}
+
 const LocationConfig* Config::findLocation(const ServerConfig& server,
                                            const std::string& request_path) const
 {
@@ -44,7 +55,7 @@ const LocationConfig* Config::findLocation(const ServerConfig& server,
     {
         const std::string& path = server.locations[i].path;
 
-        if (request_path.find(path) == 0
+        if (locationPathMatches(path, request_path)
             && (best_match == NULL || path.size() > best_match->path.size()))
             best_match = &server.locations[i];
     }
@@ -106,6 +117,7 @@ ServerConfig& ServerConfig::operator=(const ServerConfig& other)
     {
         host = other.host;
         port = other.port;
+        server_names = other.server_names;
         error_pages = other.error_pages;
         client_max_body_size = other.client_max_body_size;
         locations = other.locations;
@@ -297,6 +309,17 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
                 currentServer.error_pages[code] = tokens[2];
+            }
+            else if (tokens[0] == "server_name")
+            {
+                if (tokens.size() < 2)
+                {
+                    std::cerr << "Error: invalid server_name directive" << std::endl;
+                    return false;
+                }
+                currentServer.server_names.clear();
+                for (size_t i = 1; i < tokens.size(); i++)
+                    currentServer.server_names.push_back(tokens[i]);
             }
             else if (tokens[0] == "client_max_body_size")
             {

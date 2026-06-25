@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <unistd.h>
+#include <ctime>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "Config.hpp"
@@ -37,16 +38,21 @@ class Server
     private:
         std::vector<int> clients;
         std::vector<int> server_fds;
+        std::vector<size_t> listener_defaults;
         std::vector<ServerConfig> server_configs;
         std::map<int, size_t> client_servers;
         std::map<int, std::string> read_buffer;
         std::map<int, std::string> write_buffer;
         std::map<int, size_t> write_offset;
         std::map<int, bool> close_after_write;
+        std::map<int, time_t> client_last_activity;
         Config config;
         void closeClient(int fd);
+        const ServerConfig* defaultServerForClient(int fd) const;
+        void sendErrorAndClose(int fd, int status, const std::string& message);
         ssize_t send(int fd, const char* data, size_t size, int flags);
         void flushClient(int fd);
+        void closeTimedOutClients();
     public:
         Server();
         Server(const Server& other);
