@@ -118,14 +118,14 @@
         <section class="py-20">
             <div class="container mx-auto px-4">
                 <h2 class="text-3xl font-bold mb-12 text-center">Leadership <span class="text-accent">Team</span></h2>
-                <div id="team-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+                <div id="team-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </div>
         </section>
 
         <!-- projects Page -->
         <section id="projects" class="py-20 bg-neutral-light">
             <div class="container mx-auto px-4">
-                <h2 class="text-3xl font-bold mb-12 text-center">Project <span class="text-accent">Gallery</heads></span></h2>
+                <h2 class="text-3xl font-bold mb-12 text-center">Project <span class="text-accent">Gallery</span></h2>
                 <div id="project-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
             </div>
         </section>
@@ -163,7 +163,7 @@
                         <div>
                             <h4 class="text-xl font-bold mb-4">Our Headquarters</h4>
                             <img src="https://picsum.photos/600/400?random=3" alt="Map showing our headquarters location" class="rounded-xl shadow-lg w-full">
-                            <p class="mt-4 text-sm text-neutral-dark">123 Skyline Avenue, Urban District, Metropolis 10001</p>
+                            <p class="mt-4 text-sm text-neutral-dark">2a Halabyan St, Yerevan</p>
                         </div>
                     </div>
                 </div>
@@ -173,10 +173,10 @@
 
     <!-- Footer -->
     <footer class="bottom-0 bg-primary text-white py-10">
-        <div class="container mx-auto px	-4">
+        <div class="container mx-auto px-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
-                    <h3 class="text-2xl font-bold mb	-4">Skylines<span class="text-accent">Arch</span></h3>
+                    <h3 class="text-2xl font-bold mb-4">Skylines<span class="text-accent">Arch</span></h3>
                     <p class="opacity-80">Designing tomorrow's skyscrapers with vision, precision, and passion.</p>
                 </div>
                 <div>
@@ -217,10 +217,9 @@
         ];
 
         const teamData = [
-            { "name": "Alex Chen", "role": "Chief Architect", "image": "https://picsum.photos/200?random=7", "alt": "Alex Chen portrait" },
-            { "name": "Maya Rodriguez", "role": "Structural Engineer", "image": "https://picsum.photos/200?random=8", "alt": "Maya Rodriguez portrait" },
-            { "name": "David Park", "role": "Design Director", "image": "https://picsum.photos/200?random=9", "alt": "David Park portrait" },
-            { "name": "Sarah Klein", "role": "Project Manager", "image": "https://picsum.photos/200?random=10", "alt": "Sarah Klein portrait" }
+            { "name": "Artur Gharagulyan", "role": "Chief Architect", "image": "./images/argharag.jpg", "alt": "Artur's portrait" },
+            { "name": "Sofi Zakaryan", "role": "Project Manager", "image": "./images/szakarya.jpeg", "alt": "Sofie's portrait" },
+            { "name": "Artur Petoyan", "role": "Design Director", "image": "./images/apetoyan.jpg", "alt": "Artur's portrait" }
         ];
 
         const projectGalleryData = [
@@ -233,9 +232,9 @@
         ];
 
         const contactInfoData = [
-            { "icon": "fas fa-map-marker-alt", "text": "123 Skyline Avenue, Urban District", "link": "" },
-            { "icon": "fas fa-phone", "text": "+1 (555) 123-4567", "link": "tel:+15551234567" },
-            { "icon": "fas fa-envelope", "text": "hello@skylinesarch.com", "link": "mailto:hello@skylinesarch.com" },
+            { "icon": "fas fa-map-marker-alt", "text": "2a Halabyan St, Yerevan", "link": "" },
+            { "icon": "fas fa-phone", "text": "(010) 398413", "link": "tel:+37410398413" },
+            { "icon": "fas fa-envelope", "text": "noreply@42yerevan.am", "link": "mailto:noreply@42yerevan.am" },
             { "icon": "fas fa-clock", "text": "Mon-Fri 9am–6pm EST", "link": "" }
         ];
 
@@ -303,7 +302,7 @@
             return items.map(item => `
                 <div class="group overflow-hidden rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 animate-fade-up">
                     <img src="${item.image}" alt="${item.alt}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
-                    <div class="p	-6">
+                    <div class="p-6">
                         <h3 class="font-bold text-xl">${item.title}</h3>
                         <p class="text-neutral-dark mt-2">${item.description}</p>
                         <button class="mt-4 text-accent hover:text-primary transition-colors">Explore Design</button>

@@ -1,3 +1,2 @@
 What’s left / risky:
---> web/index.html has some broken HTML/Tailwind typos like </heads> and p	-6, px	-4, mb	-4.
 --> README is basically empty, and I don’t see tests.
