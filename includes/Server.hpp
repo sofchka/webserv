@@ -16,6 +16,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <ctime>
 
 struct Request
 {
@@ -38,13 +39,19 @@ class Server
         std::vector<int> clients;
         std::vector<int> server_fds;
         std::vector<ServerConfig> server_configs;
+        std::vector<size_t> listener_servers;
         std::map<int, size_t> client_servers;
         std::map<int, std::string> read_buffer;
         std::map<int, std::string> write_buffer;
         std::map<int, size_t> write_offset;
         std::map<int, bool> close_after_write;
+        std::map<int, std::time_t> client_activity;
         Config config;
         void closeClient(int fd);
+        void closeClientNow(int fd);
+        void closeIdleClients();
+        void replyErrorAndClose(int fd, int status, const std::string& message,
+                                const ServerConfig& server);
         ssize_t send(int fd, const char* data, size_t size, int flags);
         void flushClient(int fd);
     public:
