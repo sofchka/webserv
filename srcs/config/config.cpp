@@ -320,6 +320,17 @@ bool Config::ParseConfigFile(int fd)
                 }
                 currentServer.error_pages[code] = tokens[2];
             }
+            else if (tokens[0] == "server_name")
+            {
+                if (tokens.size() < 2)
+                {
+                    std::cerr << "Error: invalid server_name directive" << std::endl;
+                    return false;
+                }
+                currentServer.server_names.clear();
+                for (size_t i = 1; i < tokens.size(); i++)
+                    currentServer.server_names.push_back(tokens[i]);
+            }
             else if (tokens[0] == "client_max_body_size")
             {
                 if (tokens.size() != 2)

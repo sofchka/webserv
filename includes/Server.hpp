@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <cstring>
 #include <unistd.h>
+#include <ctime>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include "Config.hpp"
@@ -38,6 +39,7 @@ class Server
     private:
         std::vector<int> clients;
         std::vector<int> server_fds;
+        std::vector<size_t> listener_defaults;
         std::vector<ServerConfig> server_configs;
         std::vector<size_t> listener_servers;
         std::map<int, size_t> client_servers;
@@ -45,6 +47,7 @@ class Server
         std::map<int, std::string> write_buffer;
         std::map<int, size_t> write_offset;
         std::map<int, bool> close_after_write;
+<<<<<<< HEAD
         std::map<int, std::time_t> client_activity;
         Config config;
         void closeClient(int fd);
@@ -52,8 +55,16 @@ class Server
         void closeIdleClients();
         void replyErrorAndClose(int fd, int status, const std::string& message,
                                 const ServerConfig& server);
+=======
+        std::map<int, time_t> client_last_activity;
+        Config config;
+        void closeClient(int fd);
+        const ServerConfig* defaultServerForClient(int fd) const;
+        void sendErrorAndClose(int fd, int status, const std::string& message);
+>>>>>>> ac58abdad79afd01e0ac09bcf9b6558e2c58bd39
         ssize_t send(int fd, const char* data, size_t size, int flags);
         void flushClient(int fd);
+        void closeTimedOutClients();
     public:
         Server();
         Server(const Server& other);
