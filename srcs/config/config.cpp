@@ -288,16 +288,6 @@ bool Config::ParseConfigFile(int fd)
                     return false;
                 }
             }
-            else if (tokens[0] == "server_name")
-            {
-                if (tokens.size() < 2)
-                {
-                    std::cerr << "Error: invalid server_name directive" << std::endl;
-                    return false;
-                }
-                for (size_t j = 1; j < tokens.size(); j++)
-                    currentServer.server_names.push_back(tokens[j]);
-            }
             else if (tokens[0] == "error_page")
             {
                 if (tokens.size() != 3)

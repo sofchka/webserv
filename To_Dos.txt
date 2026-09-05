@@ -1,7 +1,2 @@
 What’s left / risky:
-<<<<<<< HEAD
---> No timeout handling, request/header size limits, or robust malformed request behavior.
---> web/index.html has some broken HTML/Tailwind typos like </heads> and p	-6, px	-4, mb	-4.
-=======
->>>>>>> ac58abdad79afd01e0ac09bcf9b6558e2c58bd39
 --> README is basically empty, and I don’t see tests.

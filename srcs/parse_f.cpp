@@ -191,7 +191,6 @@ Request parse_f(std::string request)
         return Request();
 
     bool saw_content_length = false;
-    bool saw_host = false;
     size_t pos = line_end + 2;
     while (pos < headers_end)
     {
@@ -236,12 +235,6 @@ Request parse_f(std::string request)
             saw_content_length = true;
             req.content_length = parsed;
         }
-        else if (name == "host")
-        {
-            if (saw_host || value.empty())
-                return Request();
-            saw_host = true;
-        }
         else if (name == "transfer-encoding")
         {
             std::string lowered = lower_header_name(value);
@@ -251,8 +244,6 @@ Request parse_f(std::string request)
         }
         pos = end + 2;
     }
-    if (req.version == "HTTP/1.1" && !saw_host)
-        return Request();
 
     req.body = request.substr(headers_end + 4);
     if (req.chunked)

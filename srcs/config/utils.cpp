@@ -68,13 +68,10 @@ std::vector<std::string> splitCleanTokens(const std::string& line, int *k)
 
 bool hasConfExtention(const std::string& filename)
 {
-    const std::string extension = ".conf";
-
-    if (filename.length() < extension.length())
+    int len = filename.length();
+    if (len < 5)
         return false;
-    if (filename.compare(filename.length() - extension.length(),
-                         extension.length(),
-                         extension) == 0)
+    if (filename.substr(len - 5) == ".conf")
         return true;
     return false;
 }
