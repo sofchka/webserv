@@ -1,6 +1,6 @@
 NAME = webserv
 
-CXX = c++
+CXX = g++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
 SRCS = srcs/Server.cpp srcs/main.cpp srcs/parse_f.cpp srcs/make_response.cpp srcs/utils.cpp srcs/get_type.cpp srcs/config/config.cpp srcs/config/utils.cpp srcs/config/parse.cpp 
